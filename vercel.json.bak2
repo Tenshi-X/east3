@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/auth/:path*",
+      "destination": "/api/auth.ts"
+    },
+    {
+      "source": "/api/data/:path*",
+      "destination": "/api/data.ts"
+    }
+  ]
+}
