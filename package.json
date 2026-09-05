@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo/metro-runtime": "^57.0.15",
     "@expo/vector-icons": "^15.1.1",
     "@react-navigation/bottom-tabs": "^7.18.18",
     "@react-navigation/native": "^7.3.18",
@@ -22,6 +23,7 @@
     "express": "^5.2.1",
     "pg": "^8.13.0",
     "react": "19.2.3",
+    "react-dom": "^19.2.8",
     "react-native": "0.86.3",
     "react-native-calendars": "^1.1314.0",
     "react-native-gesture-handler": "^3.2.1",
@@ -30,6 +32,7 @@
     "react-native-safe-area-context": "^5.9.1",
     "react-native-screens": "^4.27.0",
     "react-native-svg": "^15.15.5",
+    "react-native-web": "^0.21.2",
     "serverless-http": "^4.0.0",
     "ts-node": "^10.9.2",
     "victory-native": "^42.0.1",
@@ -39,7 +42,9 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "webpack": "^5.110.3",
+    "webpack-cli": "^7.2.3"
   },
   "scripts": {
     "start": "expo start",

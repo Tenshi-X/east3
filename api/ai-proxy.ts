@@ -154,7 +154,7 @@ const TOOLS = [
 ];
 
 // ─── Build system prompt ──────────────────────────────────────────────────────
-function buildSystemPrompt(userTimezone: string): string {
+export function buildSystemPrompt(userTimezone: string): string {
   const now = new Date().toLocaleString('id-ID', { timeZone: userTimezone });
   return `Kamu adalah east3 AI Copilot — asisten pribadi cerdas yang membantu pengguna mengelola seluruh kehidupan mereka.
 
@@ -185,7 +185,7 @@ GAYA KOMUNIKASI:
 }
 
 // ─── Gemini API call ──────────────────────────────────────────────────────────
-async function callGemini(messages: any[], systemPrompt: string): Promise<any> {
+export async function callGemini(messages: any[], systemPrompt: string): Promise<any> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
@@ -214,9 +214,8 @@ async function callGemini(messages: any[], systemPrompt: string): Promise<any> {
 
   return response.json();
 }
-
 // ─── OpenRouter fallback ──────────────────────────────────────────────────────
-async function callOpenRouter(messages: any[], systemPrompt: string): Promise<any> {
+export async function callOpenRouter(messages: any[], systemPrompt: string): Promise<any> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
 
@@ -275,7 +274,7 @@ async function callOpenRouter(messages: any[], systemPrompt: string): Promise<an
 }
 
 // ─── Execute tool call ────────────────────────────────────────────────────────
-async function executeTool(toolName: string, params: any, userId: string): Promise<any> {
+export async function executeTool(toolName: string, params: any, userId: string): Promise<any> {
   const today = new Date().toISOString().split('T')[0];
   const currentMonth = new Date().toISOString().slice(0, 7);
 
@@ -496,9 +495,8 @@ async function executeTool(toolName: string, params: any, userId: string): Promi
       throw new Error(`Tool tidak dikenal: ${toolName}`);
   }
 }
-
 // ─── Morning Brief handler ────────────────────────────────────────────────────
-async function handleMorningBrief(userId: string, date: string, systemPrompt: string): Promise<string> {
+export async function handleMorningBrief(userId: string, date: string, systemPrompt: string): Promise<string> {
   // Check cache
   const cached = await queryOne<{ content: string }>(
     `SELECT content FROM morning_briefs WHERE user_id = $1 AND date = $2::date`,
@@ -596,6 +594,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const today = date ?? new Date().toISOString().split('T')[0];
       const brief = await handleMorningBrief(userId, today, systemPrompt);
       return res.json({ brief });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // Handle semantic note search
+  if (action === 'search_notes') {
+    try {
+      const results = await searchNotesSemantic(userId, String((req.body as any).query ?? ''));
+      return res.json({ results });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

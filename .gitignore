@@ -39,6 +39,10 @@ yarn-error.*
 
 # local logs
 typecheck*.log
+*.log
+
+# build output
+dist/
 
 # generated native folders
 /ios
