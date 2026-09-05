@@ -39,6 +39,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build": "echo 'no build needed for expo'",
     "typecheck": "tsc --noEmit"
   },
   "private": true
