@@ -7,6 +7,7 @@
     "@react-navigation/bottom-tabs": "^7.18.18",
     "@react-navigation/native": "^7.3.18",
     "@react-navigation/native-stack": "^7.18.10",
+    "@types/aws-lambda": "^8.10.163",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@vercel/node": "^3.2.29",
@@ -29,6 +30,7 @@
     "react-native-safe-area-context": "^5.9.1",
     "react-native-screens": "^4.27.0",
     "react-native-svg": "^15.15.5",
+    "serverless-http": "^4.0.0",
     "ts-node": "^10.9.2",
     "victory-native": "^42.0.1",
     "zustand": "^5.0.15"
@@ -40,12 +42,12 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "ts-node server.ts",
+    "start": "expo start",
     "dev": "ts-node server.ts",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build": "echo 'no build needed for expo'",
+    "build": "echo 'build for netlify'",
     "typecheck": "tsc --noEmit"
   },
   "private": true
