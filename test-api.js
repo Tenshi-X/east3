@@ -1,11 +1,9 @@
 const https = require('https');
-const data = JSON.stringify({email:'tes@tes.com',password:'pass123',display_name:'tester'});
-const options = {hostname:'east3-ekfgnjcgc-tenshi-xs-projects.vercel.app',port:443,path:'/api/auth/register',method:'POST',headers:{'Content-Type':'application/json','Content-Length':data.length}};
+const options = {hostname:'east3-ekfgnjcgc-tenshi-xs-projects.vercel.app',port:443,path:'/api/hello',method:'GET'};
 const req = https.request(options, (res) => {
   let body = '';
   res.on('data', (chunk) => body += chunk);
   res.on('end', () => { console.log('CODE=' + res.statusCode); console.log('BODY=' + body); });
 });
 req.on('error', (e) => { console.log('ERROR=' + e.message); });
-req.write(data);
 req.end();
