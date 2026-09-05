@@ -32,10 +32,15 @@ export function WorkoutScreen({ navigation }: any) {
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
-  const [planForm, setPlanForm] = useState({
+  const [planForm, setPlanForm] = useState<{
+    name: string;
+    split_type: 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full_body' | 'custom';
+    day_of_week: number[];
+    exercises: { name: string; defaultSets: number; defaultReps: number }[];
+  }>({
     name: '',
-    split_type: 'custom' as const,
-    day_of_week: [] as number[],
+    split_type: 'custom',
+    day_of_week: [],
     exercises: [{ name: '', defaultSets: 3, defaultReps: 10 }],
   });
 
