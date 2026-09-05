@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { api } from '../api';
 
 export default function Workout() {
   const [plans, setPlans] = useState<any[]>([]);

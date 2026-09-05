@@ -67,20 +67,17 @@ router.post('/ai-proxy', async (req: Request, res: Response) => {
 
   let responseText = '';
   let modelUsed = 'gemini-2.0-flash';
+  const aiErrors: string[] = [];
 
   try {
     let result;
     try {
       result = await callGemini(history, systemPrompt);
-      modelUsed = 'gemini-2.0-flash';
     } catch (geminiErr: any) {
       console.error('Gemini failed:', geminiErr.message);
-      try {
-        result = await callGemini(history, systemPrompt);
-      } catch {
-        result = await callOpenRouter(history, systemPrompt);
-        modelUsed = (result as any)?.modelUsed ?? 'openrouter-fallback';
-      }
+      aiErrors.push('Gemini: ' + geminiErr.message);
+      result = await callOpenRouter(history, systemPrompt);
+      modelUsed = (result as any)?.modelUsed ?? 'openrouter-fallback';
     }
 
     const candidate = result?.candidates?.[0];
@@ -124,7 +121,8 @@ router.post('/ai-proxy', async (req: Request, res: Response) => {
     }
   } catch (err: any) {
     console.error('AI proxy error:', err);
-    responseText = 'Maaf, AI sedang sibuk. Coba lagi sebentar lagi ya 🙏';
+    const cause = aiErrors.length ? aiErrors.join(' | ') + ' | ' : '';
+    responseText = `⚠️ AI gagal merespons. Penyebab: ${cause}${err.message}`;
   }
 
   return res.json({ message: responseText, model_used: modelUsed });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, todayStr, rupiah, timeOf } from '../api';
 
 export default function Dashboard({ user }: { user: any }) {
@@ -8,6 +8,11 @@ export default function Dashboard({ user }: { user: any }) {
   const [txs, setTxs] = useState<any[]>([]);
   const [brief, setBrief] = useState<string | null>(null);
   const [briefBusy, setBriefBusy] = useState(false);
+  const [chatMsgs, setChatMsgs] = useState<{ role: string; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const [convId, setConvId] = useState<string | null>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
   const [newPriority, setNewPriority] = useState('');
   const [err, setErr] = useState('');
 
@@ -69,6 +74,32 @@ export default function Dashboard({ user }: { user: any }) {
     }
   };
 
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatBusy) return;
+    setChatInput('');
+    setChatMsgs((m) => [...m, { role: 'user', content: text }]);
+    setChatBusy(true);
+    try {
+      let id = convId;
+      if (!id) {
+        const conv = await api.create('ai_conversations', { title: 'Chat' });
+        id = conv.data.id;
+        setConvId(id);
+      }
+      const r = await api.aiChat(text, id);
+      setChatMsgs((m) => [...m, { role: 'assistant', content: r.message ?? '(kosong)' }]);
+    } catch (e: any) {
+      setChatMsgs((m) => [...m, { role: 'assistant', content: '⚠️ ' + e.message }]);
+    } finally {
+      setChatBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    chatRef.current?.scrollTo(0, chatRef.current.scrollHeight);
+  }, [chatMsgs, chatBusy]);
+
   const greeting = (() => {
     const h = new Date().getHours();
     return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 19 ? 'Selamat sore' : 'Selamat malam';
@@ -96,6 +127,36 @@ export default function Dashboard({ user }: { user: any }) {
           <div className="stat-value">
             {priorities.filter((p) => p.is_done).length}/{priorities.length} selesai
           </div>
+        </div>
+      </div>
+
+      <div className="section card">
+        <h3 style={{ marginBottom: 8 }}>🤖 Tanya AI Copilot</h3>
+        <div className="chat-box" ref={chatRef} style={{ height: 260 }}>
+          {chatMsgs.length === 0 && !chatBusy && (
+            <p className="empty" style={{ margin: 'auto' }}>
+              Mis. "Catat pengeluaran makan siang 25rb" atau "Buatkan plan workout push hari 1"
+            </p>
+          )}
+          {chatMsgs.map((m, i) => (
+            <div key={i} className={`bubble ${m.role}`}>
+              {m.content}
+            </div>
+          ))}
+          {chatBusy && <div className="bubble assistant">Mengetik…</div>}
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <input
+            className="grow"
+            placeholder="Ketik perintah untuk AI…"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && sendChat()}
+            disabled={chatBusy}
+          />
+          <button className="btn" onClick={sendChat} disabled={chatBusy || !chatInput.trim()}>
+            Kirim
+          </button>
         </div>
       </div>
 

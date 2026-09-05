@@ -8,7 +8,6 @@ import Finance from './pages/Finance';
 import Workout from './pages/Workout';
 import Habits from './pages/Habits';
 import Notes from './pages/Notes';
-import AICopilot from './pages/AICopilot';
 
 export default function App() {
   const [user, setUser] = useState<any>(loadUser());
@@ -66,7 +65,6 @@ export default function App() {
           <NavLink to="/workout">🏋️ Workout</NavLink>
           <NavLink to="/habits">✅ Habits</NavLink>
           <NavLink to="/notes">🧠 Notes</NavLink>
-          <NavLink to="/copilot">🤖 AI Copilot</NavLink>
         </nav>
         <div className="sidebar-footer">
           <div className="user-email">{user?.email ?? 'user'}</div>
@@ -83,7 +81,6 @@ export default function App() {
           <Route path="/workout" element={<Workout />} />
           <Route path="/habits" element={<Habits />} />
           <Route path="/notes" element={<Notes />} />
-          <Route path="/copilot" element={<AICopilot />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
