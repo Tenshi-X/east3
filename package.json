@@ -25,13 +25,13 @@
     "react-native-screens": "^4.27.0",
     "react-native-svg": "^15.15.5",
     "victory-native": "^42.0.1",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.15",
+    "@vercel/node": "^3.2.29"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
     "@types/react": "~19.2.2",
-    "@vercel/node": "^3.2.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
