@@ -1,20 +1,0 @@
-> [debug] [2026-09-05T07:48:07.518Z] Found config in file "C:\Users\Seva G.F\Documents\GitHub\east3\vercel.json"
-Vercel CLI 59.11.7 (Node.js 24.18.0) | curl is in beta — https://vercel.com/feedback
-> [debug] [2026-09-05T07:48:07.530Z] Agent/TTY/nonInteractive: isAgent=false agentName=none stdin.isTTY=true --non-interactive=false explicitFalse=false => nonInteractive=false
-> [debug] [2026-09-05T07:48:07.531Z] user supplied known subcommand: "curl"
-> [debug] [2026-09-05T07:48:07.884Z] curl flags (6 args): ["-X","POST","-H"," Content-Type: application/json","-d","@body.json"]
-> [debug] [2026-09-05T07:48:07.885Z] Valid access token, skipping token refresh.
-> [debug] [2026-09-05T07:48:07.895Z] #1 → GET https://api.vercel.com/v13/deployments/east3-q4g8hu8fp-tenshi-xs-projects.vercel.app?teamId=team_UTtTqnkPqjD33brE2GeBkr4n
-> [debug] [2026-09-05T07:48:08.890Z] #1 ← 200 OK: sfo1::tt99c-1788594486541-881a33f016a1 [993ms]
-> [debug] [2026-09-05T07:48:08.897Z] #2 → GET https://api.vercel.com/v9/projects/prj_tt2njTMQhuuAfESjjVkJy9rPFpzv?teamId=team_UTtTqnkPqjD33brE2GeBkr4n
-> [debug] [2026-09-05T07:48:09.169Z] #2 ← 200 OK: sfo1::hw89t-1788594487098-417297ade0df [272ms]
-> [debug] [2026-09-05T07:48:09.170Z] Using existing protection bypass token from project settings: iI9cmTf6QsndcDQHtvEGsJfxxuub4iEP
-> [debug] [2026-09-05T07:48:09.170Z] Executing: curl --url https://east3-q4g8hu8fp-tenshi-xs-projects.vercel.app/api/auth/register --header "x-vercel-protection-bypass: iI9cmTf6QsndcDQHtvEGsJfxxuub4iEP" -X POST -H " Content-Type: application/json" -d @body.json
-  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
-                                 Dload  Upload  Total   Spent   Left   Speed
-  0      0   0      0   0      0      0      0                              0100     87   0     15 100     72     32    154                              0100     87   0     15 100     72     32    154                              0100     87   0     15 100     72     32    154                              0
-Redirecting...
-> [debug] [2026-09-05T07:48:09.949Z] Vercel CLI 59.11.7 (Node.js 24.18.0)
-
-> [debug] [2026-09-05T07:48:10.993Z] Telemetry event tracked
-> [debug] [2026-09-05T07:48:11.041Z] Telemetry subprocess exited with code 0
