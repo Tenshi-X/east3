@@ -1,224 +1,167 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, todayStr, rupiah, timeOf } from '../api';
+import { useCallback,useEffect,useRef,useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { api,todayStr,rupiah,timeOf } from '../api';
 
-export default function Dashboard({ user }: { user: any }) {
-  const today = todayStr();
-  const [priorities, setPriorities] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [txs, setTxs] = useState<any[]>([]);
-  const [brief, setBrief] = useState<string | null>(null);
-  const [briefBusy, setBriefBusy] = useState(false);
-  const [chatMsgs, setChatMsgs] = useState<{ role: string; content: string }[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatBusy, setChatBusy] = useState(false);
-  const [convId, setConvId] = useState<string | null>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
-  const [newPriority, setNewPriority] = useState('');
-  const [err, setErr] = useState('');
+const SPLIT_LABEL: Record<string,string> = {
+ push:'Push Day',
+ pull:'Pull Day',
+ legs:'Legs Day',
+ upper:'Upper Day',
+ lower:'Lower Day',
+ full_body:'Full Body',
+ custom:'Custom',
+};
 
-  const load = useCallback(async () => {
-    try {
-      const [p, ev, tx, br] = await Promise.all([
-        api.list('priorities', { filter_eq_date: today, order_by: 'created_at', order_dir: 'asc' }),
-        api.list('events', {
-          filter_gte_start_time: `${today}T00:00:00`,
-          filter_lte_start_time: `${today}T23:59:59`,
-          order_by: 'start_time',
-          order_dir: 'asc',
-        }),
-        api.list('transactions', { limit: '200' }),
-        api.list('morning_briefs', { filter_eq_date: today, limit: '1' }),
-      ]);
-      setPriorities(p.data ?? []);
-      setEvents(ev.data ?? []);
-      setTxs(tx.data ?? []);
-      setBrief(br.data?.[0]?.content ?? null);
-    } catch (e: any) {
-      setErr(e.message);
-    }
-  }, [today]);
+export default function Dashboard({ user }: { user:any }) {
+ const today = todayStr();
+ const [params] = useSearchParams();
+ const focusTask = params.get('new') === 'task';
+ const [events,setEvents] = useState<any[]>([]);
+ const [brief,setBrief] = useState<string|null>(null);
+ const [briefBusy,setBriefBusy] = useState(false);
+ const [txs,setTxs] = useState<any[]>([]);
+ const [plans,setPlans] = useState<any[]>([]);
+ const [habits,setHabits] = useState<any[]>([]);
+ const [logs,setLogs] = useState<any[]>([]);
+ const [tasks,setTasks] = useState<any[]>([]);
+ const [newTask,setNewTask] = useState('');
+ const [newTaskOpen,setNewTaskOpen] = useState(focusTask);
+ const [err,setErr] = useState('');
+ const taskRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+ const load = useCallback(async () => {
+   try {
+     const [ev,br,tx,pl,ha,lo,ta] = await Promise.all([
+       api.list('events',{ filter_gte_start_time:`${today}T00:00:00`, filter_lte_start_time:`${today}T23:59:59`, order_by:'start_time', order_dir:'asc' }),
+       api.list('morning_briefs',{ filter_eq_date:today, limit:'1' }),
+       api.list('transactions',{ limit:'200' }),
+       api.list('workout_plans',{}),
+       api.list('habits',{ filter_eq_is_active:'true' }),
+       api.list('habit_logs',{ filter_eq_date:today }),
+       api.list('priorities',{ filter_eq_date:today, order_by:'created_at', order_dir:'asc' })
+     ]);
+     setEvents(ev.data ?? []);
+     setBrief(br.data?.[0]?.content ?? null);
+     setTxs(tx.data ?? []);
+     setPlans(pl.data ?? []);
+     setHabits(ha.data ?? []);
+     setLogs(lo.data ?? []);
+     setTasks(ta.data ?? []);
+   } catch (e:any) { setErr(e.message); }
+ }, [today]);
 
-  const month = today.slice(0, 7);
-  const monthTx = txs.filter((t) => (t.occurred_at ?? '').slice(0, 7) === month);
-  const income = monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-  const expense = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+ useEffect(() => { load(); }, [load]);
+ useEffect(() => { if (focusTask && taskRef.current) taskRef.current.focus(); }, [focusTask]);
 
-  const addPriority = async () => {
-    if (!newPriority.trim()) return;
-    await api.create('priorities', { title: newPriority.trim(), date: today });
-    setNewPriority('');
-    load();
-  };
-  const togglePriority = async (p: any) => {
-    await api.update('priorities', p.id, { is_done: !p.is_done });
-    load();
-  };
-  const removePriority = async (id: string) => {
-    await api.remove('priorities', id);
-    load();
-  };
-  const genBrief = async () => {
-    setBriefBusy(true);
-    setErr('');
-    try {
-      const r = await api.morningBrief(today);
-      setBrief(r.brief);
-    } catch (e: any) {
-      setErr(e.message);
-    } finally {
-      setBriefBusy(false);
-    }
-  };
+ const month = today.slice(0, 7);
+ const monthTx = txs.filter(t => (t.occurred_at ?? '').slice(0, 7) === month);
+ const income = monthTx.filter(t => t.type === 'income').reduce((s,t) => s + Number(t.amount), 0);
+ const expense = monthTx.filter(t => t.type === 'expense').reduce((s,t) => s + Number(t.amount),   0);
+ const remaining = income - expense;
 
-  const sendChat = async () => {
-    const text = chatInput.trim();
-    if (!text || chatBusy) return;
-    setChatInput('');
-    setChatMsgs((m) => [...m, { role: 'user', content: text }]);
-    setChatBusy(true);
-    try {
-      let id = convId;
-      if (!id) {
-        const conv = await api.create('ai_conversations', { title: 'Chat' });
-        id = conv.data.id;
-        setConvId(id);
-      }
-      const r = await api.aiChat(text, id);
-      setChatMsgs((m) => [...m, { role: 'assistant', content: r.message ?? '(kosong)' }]);
-    } catch (e: any) {
-      setChatMsgs((m) => [...m, { role: 'assistant', content: '⚠️ ' + e.message }]);
-    } finally {
-      setChatBusy(false);
-    }
-  };
+ const genBrief = async () => {
+   setBriefBusy(true);
+   setErr('');
+   try { const r = await api.morningBrief(today); setBrief(r.brief); } catch (e:any) { setErr(e.message); } finally { setBriefBusy(false); }
+ };
+ const addTask = async () => {
+   if (!newTask.trim()) return;
+   await api.create('priorities',{ title:newTask.trim(), date:today });
+   setNewTask('');
+   load();
+ };
+ const toggleTask = async (p:any) => {
+   await api.update('priorities', p.id, { is_done: !p.is_done });
+   load();
+ };
+ const toggleHabit = async (h:any) => {
+   const done = !!logs.find(l => l.habit_id === h.id && l.is_completed);
+   await api.upsert('habit_logs',{ habit_id:h.id, date:today, value:done ? 0 : (h.target_value ?? 1), is_completed:!done }, 'habit_id,date');
+   load();
+ };
+ const dow = new Date().getDay();
+ const todaysPlan = plans.find(p => (p.day_of_week ?? []).includes(dow));
+ const name = user?.display_name || 'Farel';
 
-  useEffect(() => {
-    chatRef.current?.scrollTo(0, chatRef.current.scrollHeight);
-  }, [chatMsgs, chatBusy]);
+return (
+<div>
+{err && <div className="error-box">{err}</div>}
+<section className="card lift">
+<div className="row between">
+<h3 style={{ marginBottom: 0 }}>Sun Morning Brief</h3>
+<button className="btn small ghost" onClick={genBrief} disabled={briefBusy}>{briefBusy ? 'Menyusun...' : brief ? 'Perbarui' : 'Buatkan'}</button>
+</div>
+{brief ? <div className="brief">{brief}</div> : <p className="empty">Selamat pagi, {name}. Ketuk Buatkan agar AI merangkum harimu.</p>}
+</section>
+<section className="section">
+<div className="row between" style={{ marginBottom: 12 }}><h3>Kalender Jadwal Hari Ini</h3></div>
+{events.length === 0 ? <p className="empty">Tidak ada agenda hari ini.</p> : (
+<div className="timeline">
+{events.map(ev => (
+<div key={ev.id} className="tl-item">
+<div className="tl-time">{timeOf(ev.start_time)} - {timeOf(ev.end_time)}</div>
+<div className="tl-title">{ev.title}</div>
+{ev.description && <div className="tl-sub">{ev.description}</div>}
+</div>
+))}
+</div>
+)}
+</section>
+<section className="section">
+<div className="row between" style={{ marginBottom: 12 }}><h3>Wallet Budget Bulan Ini</h3></div>
+<div className="stat-grid">
+<div className="stat-card"><div className="k">Pemasukan</div><div className="v green">{rupiah(income)}</div></div>
+<div className="stat-card"><div className="k">Pengeluaran</div><div className="v red">{rupiah(expense)}</div></div>
+<div className="stat-card"><div className="k">Sisa</div><div className="v blue">{rupiah(remaining)}</div></div>
+</div>
+</section>
+<section className="section card">
+<div className="row between" style={{ marginBottom: 12 }}><h3 style={{ marginBottom: 0 }}>Target Prioritas Hari Ini</h3></div>
+{newTaskOpen ? (
+<div className="row" style={{ marginBottom: 12 }}>
+<input ref={taskRef} className="grow" placeholder="Tambah prioritas..." value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
+<button className="btn" onClick={addTask}>+</button>
+</div>
+) : (
+<button className="btn small ghost" style={{ marginBottom: 12 }} onClick={() => setNewTaskOpen(true)}>+ Tambah tugas</button>
+)}
+{tasks.length === 0 && <p className="empty">Belum ada prioritas.</p>}
+{tasks.map(p => (
+<div key={p.id} className={p.is_done ? 'item done' : 'item'}>
+<input type="checkbox" checked={!!p.is_done} onChange={() => toggleTask(p)} />
+<span className="title">{p.title}</span>
+<button className="btn danger" onClick={() => api.remove('priorities', p.id).then(load)}>x</button>
+</div>
+))}
+</section>
 
-  const greeting = (() => {
-    const h = new Date().getHours();
-    return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 19 ? 'Selamat sore' : 'Selamat malam';
-  })();
-
-  return (
-    <div>
-      <h1>
-        {greeting}, {user?.display_name ?? user?.email?.split('@')[0]} 👋
-      </h1>
-      <p className="page-sub">{today}</p>
-      {err && <div className="error-box">{err}</div>}
-
-      <div className="grid cols-3">
-        <div className="card">
-          <h3>Pemasukan (bulan ini)</h3>
-          <div className="stat-value green">{rupiah(income)}</div>
-        </div>
-        <div className="card">
-          <h3>Pengeluaran (bulan ini)</h3>
-          <div className="stat-value red">{rupiah(expense)}</div>
-        </div>
-        <div className="card">
-          <h3>Prioritas hari ini</h3>
-          <div className="stat-value">
-            {priorities.filter((p) => p.is_done).length}/{priorities.length} selesai
-          </div>
-        </div>
-      </div>
-
-      <div className="section card">
-        <h3 style={{ marginBottom: 8 }}>🤖 Tanya AI Copilot</h3>
-        <div className="chat-box" ref={chatRef} style={{ height: 260 }}>
-          {chatMsgs.length === 0 && !chatBusy && (
-            <p className="empty" style={{ margin: 'auto' }}>
-              Mis. "Catat pengeluaran makan siang 25rb" atau "Buatkan plan workout push hari 1"
-            </p>
-          )}
-          {chatMsgs.map((m, i) => (
-            <div key={i} className={`bubble ${m.role}`}>
-              {m.content}
-            </div>
-          ))}
-          {chatBusy && <div className="bubble assistant">Mengetik…</div>}
-        </div>
-        <div className="row" style={{ gap: 8 }}>
-          <input
-            className="grow"
-            placeholder="Ketik perintah untuk AI…"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-            disabled={chatBusy}
-          />
-          <button className="btn" onClick={sendChat} disabled={chatBusy || !chatInput.trim()}>
-            Kirim
-          </button>
-        </div>
-      </div>
-
-      <div className="section card">
-        <div className="row between">
-          <h3 style={{ marginBottom: 0 }}>☀️ Morning Brief</h3>
-          <button className="btn small" onClick={genBrief} disabled={briefBusy}>
-            {briefBusy ? 'Menyusun…' : brief ? 'Regenerate' : 'Generate'}
-          </button>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          {brief ? (
-            <div className="brief">{brief}</div>
-          ) : (
-            <p className="empty">Belum ada brief hari ini. Klik Generate untuk membuat ringkasan harian dengan AI.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="grid cols-2 section">
-        <div className="card">
-          <h3>🎯 Prioritas Hari Ini</h3>
-          <div className="row" style={{ marginBottom: 12 }}>
-            <input
-              className="grow"
-              placeholder="Tambah prioritas…"
-              value={newPriority}
-              onChange={(e) => setNewPriority(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addPriority()}
-            />
-            <button className="btn" onClick={addPriority}>
-              +
-            </button>
-          </div>
-          {priorities.length === 0 && <p className="empty">Belum ada prioritas hari ini.</p>}
-          {priorities.map((p) => (
-            <div key={p.id} className={`item ${p.is_done ? 'done' : ''}`}>
-              <input type="checkbox" checked={!!p.is_done} onChange={() => togglePriority(p)} />
-              <span className="title">{p.title}</span>
-              <button className="btn danger" onClick={() => removePriority(p.id)}>
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div className="card">
-          <h3>📅 Agenda Hari Ini</h3>
-          {events.length === 0 && <p className="empty">Tidak ada event hari ini.</p>}
-          {events.map((ev) => (
-            <div key={ev.id} className="item">
-              <span className="dot" style={{ background: ev.color ?? '#088395' }} />
-              <div className="title">
-                <div>{ev.title}</div>
-                <div className="meta">
-                  {timeOf(ev.start_time)} – {timeOf(ev.end_time)}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+<section className="section">
+<div className="row between" style={{ marginBottom: 12 }}><h3>Dumbbell Workout Hari Ini</h3></div>
+{todaysPlan ? (
+<div className="card lift">
+<div className="row between">
+<div>
+<div style={{ fontWeight: 800, fontSize: 17 }}>{todaysPlan.name}</div>
+<div className="tl-sub">{SPLIT_LABEL[todaysPlan.split_type] ?? todaysPlan.split_type}</div>
+</div>
+<span className="budget-chip">Latihan</span>
+</div>
+</div>
+) : <p className="empty">Hari ini hari istirahat - tidak ada program latihan.</p>}
+</section>
+<section className="section">
+<div className="row between" style={{ marginBottom: 12 }}><h3>Check Habit Hari Ini</h3></div>
+{habits.length === 0 ? <p className="empty">Belum ada habit. Kelola lewat Profil &gt; Habits.</p> : habits.map(h => {
+const done = !!logs.find(l => l.habit_id === h.id && l.is_completed);
+return (
+<button key={h.id} className="habit-row" onClick={() => toggleHabit(h)}>
+<span className={done ? 'habit-check done' : 'habit-check'}>{done ? 'v' : ''}</span>
+<span className="grow" style={{ textAlign: 'left' }}>{h.name}</span>
+{h.icon && <span>{h.icon}</span>}
+</button>
+);
+})}
+</section>
+</div>
+);
 }

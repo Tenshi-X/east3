@@ -175,6 +175,18 @@ function FinanceView(props: any) {
     categories,
   } = props;
 
+const now = new Date();
+const days = Array.from({ length: 7 }, (_x, i) => {
+const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
+const key = d.toISOString().slice(0, 10);
+const dayTxs = txs.filter((t: any) => (t.occurred_at ?? '').slice(0, 10) === key);
+return {
+label: d.toLocaleDateString('id-ID', { weekday: 'short' }),
+inc: dayTxs.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + Number(t.amount), 0),
+exp: dayTxs.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) => s + Number(t.amount), 0)
+};
+});
+const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
   return (
     <div>
       <h1>💰 Finance Copilot</h1>
@@ -201,6 +213,22 @@ function FinanceView(props: any) {
         <div className="card">
           <h3>➕ Transaksi Baru</h3>
           <div className="row wrap" style={{ gap: 8, marginBottom: 8 }}>
+<div className="card" style={{ marginBottom: 16 }}>
+<h3>Cashflow 7 Hari Terakhir</h3>
+<div className="chart">
+{days.map((d: any) => (
+<div key={d.label} className="bar">
+<div className="fill" style={{ width: '100%', height: `${Math.round((d.exp / maxDay) * 100)}%`, background: 'var(--primary)' }} />
+<div className="fill" style={{ width: '100%', height: `${Math.round((d.inc / maxDay) * 100)}%`, background: 'var(--leaf)' }} />
+<div className="lbl">{d.label}</div>
+</div>
+))}
+</div>
+<div className="row" style={{ gap: 16, marginTop: 8, justifyContent: 'center' }}>
+<span className="budget-chip" style={{ color: 'var(--primary)' }}>■ Pengeluaran</span>
+<span className="budget-chip" style={{ color: 'var(--leaf)' }}>■ Pemasukan</span>
+</div>
+</div>
             <input
               type="number"
               placeholder="Jumlah (Rp)"

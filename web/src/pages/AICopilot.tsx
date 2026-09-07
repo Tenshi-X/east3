@@ -36,7 +36,7 @@ export default function AICopilot() {
         id = conv.data.id;
         setConvId(id);
       }
-      const r = await api.aiChat(text, id);
+      const r = await api.aiChat(text, id!);
       setMessages((m) => [...m, { role: 'assistant', content: r.reply ?? r.message ?? '(kosong)' }]);
     } catch (e: any) {
       setErr(e.message);

@@ -1,3 +1,52 @@
+# Atlas — Personal AI Secretary (PWA)
+
+Atlas adalah versi Progressive Web App dari east3: asisten AI pribadi mobile-first yang dapat diinstal (Add to Home Screen) di Android, tetap menggunakan backend + Neon PostgreSQL yang sama, dan tetap di-deploy ke Netlify.
+
+> Dokumentasi di bawah bagian ini adalah catatan teknis lama untuk east3 (Expo native + API). Berikut adalah ringkasan arsitektur baru.
+
+## Arsitektur (tidak berubah, hanya di-rebrand & diperbaruhi)
+
+```
+┌──────────────────┐      ┌───────────────────────────┐      ┌─────────────┐
+│  Atlas PWA       │─────▶│  Server API (Netlify Fn)   │─────▶│  Neon DB    │
+│  (web/, Vite)    │      │  /api/auth, /api/data,    │      │  (Postgres) │
+│  installable     │      │  /api/ai-proxy (server)   │      │  + pgvector │
+└──────────────────┘      └───────────────────────────┘      └─────────────┘
+```
+
+UI tidak pernah memanggil provider AI secara langsung — semua lewat **AIProvider**
+abstraksi client (`web/src/ai.ts`, interface `generate/summarize/toolCall`) yang
+memanggil `/api/ai-proxy`; server memakai **Gemini 2.0 Flash** (primary) dengan
+fallback **OpenRouter**.
+
+## Fitur PWA (sesuai PRD)
+- **Manifest**: `web/public/manifest.webmanifest` — Atlas, `standalone`, portrait, theme `#3B82F6`, background putih.
+- **Ikon**: `web/public/icons/icon.svg` (SVG tunggal, dipakai untuk `any` & `maskable`).
+- **Service Worker**: `web/public/sw.js` — cache app-shell; **tidak** mengalik API `/api/*`.
+- **Splash / install**: Chrome Android otomatis memakai icon + nama + `theme_color` dari manifest.
+- **App shell**: Top App Bar sticky → konten scroll → **FAB** → **Bottom Navigation** 5 tab
+  (Home, Kalender, AI, Keuangan, Profil) dengan **FAB quick actions** (New Task/Event/Expense/Note).
+- **Desktop**: app-frame 430px di tengah (looks like a phone app di layar besar, `@media min-width: 768px`).
+- **Animasi 180–250 ms**: card lift, sheet slide-up, FAB rotate, progress fill, page transition.
+
+## Halaman
+- **Home**: Morning Brief (AI), timeline jadwal hari ini, kartu Income/Expense/Remaining, Workout hari ini, checklist Habit, prioritas (Quick Task).
+- **Calendar**: view Hari/Minggu/Bulan + input bahasa alami (mis. “Meeting besok jam 9”, "Gym tiap Senin Rabu Jumat") yang di-parse AI jadi event.
+- **AI**: chat dengan tool-calling AI (conversation, history, undo aksi).
+- **Finance**: tambah cepat (<10 detik), kategori, ringkasan bulanan, cashflow chart 7 hari, indikator budget.
+- **Profil**: info akun, tautan ke Workout / Habits / Second Brain, dan logout.
+
+## Backend & Database
+Lihat bagian selanjutnya dari file ini (east3 legacy docs) untuk:
+- Neon schema di `db/schema.sql`
+- Endpoint REST: `/api/auth/*`, `/api/data/*`, `/api/ai-proxy`
+- Cara setup & deploy Netlify.
+
+## Folder penting
+- `web/` — kode PWA (React 19 + Vite) yang di-deploy ke Netlify (`netlify.toml` → `web/dist`)
+- `src/` — Aplikasi ekspo native yang tetap (untuk Android/iOS native build)
+- `api/` — serverless functions (auth, data, ai-proxy)
+- `db/schema.sql` — schema PostgreSQL/Neon
 # east3 - Personal Life OS
 
 A comprehensive React Native (Expo) app functioning as a Personal AI Secretary to manage finances, schedule, workouts, habits, and a Second Brain, all powered by Gemini and Neon PostgreSQL.

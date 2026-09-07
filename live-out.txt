@@ -1,0 +1,8 @@
+HOME: 200 <!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+<!-- This site is hosted on Netlify. Anyone can b
+LOGIN: 200 {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMzk0NDA3NC1kMWU2LTRlNTEtODY3OC05ZGNhODkwMTVmZDAiLCJleHAiOjE3OTExOTk2OTh9.LCn9ZwcRWDpvzmSapj
+CONV: 201 {"data":{"id":"52d693ae-8010-4dd3-8390-e782e38a2fce","user_id":"23944074-d1e6-4e51-8678-9dca89015fd0","title":"Live test
+AI-CHAT: 200 {"message":"⚠️ AI gagal merespons. Penyebab: Gemini: Gemini error 404: {\n  \"error\": {\n    \"code\": 404,\n    \"message\": \"This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\n    \"status\": \"NOT_FOUND\"\n  }\n}\n | OPENROUTER_API_KEY not 
