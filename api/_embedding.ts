@@ -1,9 +1,13 @@
 import { query } from './_db';
 
-// ─── Gemini embedding helper ──────────────────────────────────────────────────
+// ─── Embedding helper ─────────────────────────────────────────────────────────
+// OpenRouter (the AI provider for chat) does not offer a free embedding endpoint
+// yet, so vector embeddings remain an OPTIONAL Gemini feature: when GEMINI_API_KEY
+// is set we generate pgvector embeddings; when it is missing (or the model fails)
+// searchNotesSemantic falls back to plain keyword search, so the app keeps working.
 export async function generateEmbedding(text: string): Promise<number[]> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set (embeddings are optional — keyword search will be used)');
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,

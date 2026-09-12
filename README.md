@@ -16,8 +16,11 @@ Atlas adalah versi Progressive Web App dari east3: asisten AI pribadi mobile-fir
 
 UI tidak pernah memanggil provider AI secara langsung — semua lewat **AIProvider**
 abstraksi client (`web/src/ai.ts`, interface `generate/summarize/toolCall`) yang
-memanggil `/api/ai-proxy`; server memakai **Gemini 2.0 Flash** (primary) dengan
-fallback **OpenRouter**.
+memanggil `/api/ai-proxy`; server memakai **OpenRouter** (satu-satunya provider,
+hanya **model free** dari [model list OpenRouter](https://openrouter.ai/models?max_price=0))
+met **fallback automatis**: jika satu model free rate-limited (429) / exhausted (402)
+/ removed (404), server langsung memakai model free berikutnya yang tersedia, dan
+als pemanggil akhir `openrouter/free` (auto-router).
 
 ## Fitur PWA (sesuai PRD)
 - **Manifest**: `web/public/manifest.webmanifest` — Atlas, `standalone`, portrait, theme `#3B82F6`, background putih.
@@ -49,13 +52,13 @@ Lihat bagian selanjutnya dari file ini (east3 legacy docs) untuk:
 - `db/schema.sql` — schema PostgreSQL/Neon
 # east3 - Personal Life OS
 
-A comprehensive React Native (Expo) app functioning as a Personal AI Secretary to manage finances, schedule, workouts, habits, and a Second Brain, all powered by Gemini and Neon PostgreSQL.
+A comprehensive React Native (Expo) app functioning as a Personal AI Secretary to manage finances, schedule, workouts, habits, and a Second Brain, powered by OpenRouter free models and Neon PostgreSQL.
 
 ## Tech Stack
 - **Frontend**: React Native (Expo), TypeScript, Zustand, React Navigation
 - **Database**: Neon (PostgreSQL, pgvector)
 - **Backend**: Vercel Serverless Functions (Node.js, REST API)
-- **AI Models**: Google Gemini 2.0 Flash (Primary) & OpenRouter (Fallback)
+- **AI Models**: OpenRouter — free models only, with automatic fallback between free models (`openrouter/free` auto-router as last resort)
 
 ## Architecture
 
@@ -71,7 +74,7 @@ The mobile app never talks to the database directly. All requests go through the
 1. Authenticates users via JWT (HS256)
 2. Validates ownership of every row
 3. Executes parameterized SQL queries against Neon
-4. Keeps API keys (Gemini, OpenRouter) secure on the server
+4. Keeps API keys (OpenRouter) secure on the server
 
 ## Setup Guide
 
@@ -88,8 +91,9 @@ The mobile app never talks to the database directly. All requests go through the
 2. Deploy the API: `vercel`
 3. Set environment variables in Vercel (Settings → Environment Variables):
    - `DATABASE_URL` — your Neon connection string
-   - `GEMINI_API_KEY` — from [Google AI Studio](https://aistudio.google.com)
-   - `OPENROUTER_API_KEY` — from [OpenRouter](https://openrouter.ai) (optional fallback)
+   - `OPENROUTER_API_KEY` — from [OpenRouter](https://openrouter.ai/settings/keys) (the ONLY AI provider; chat always uses free models with automatic fallback)
+   - `OPENROUTER_FALLBACK_MODELS` — optional, comma-separated free-model priority order
+   - `GEMINI_API_KEY` — optional, only for vector embeddings (no free OpenRouter embedding endpoint yet); without it, note search degrades to keyword search
    - `JWT_SECRET` — any long random string (e.g. `openssl rand -hex 32`)
 4. Note your deployment URL (e.g. `https://east3.vercel.app`)
 

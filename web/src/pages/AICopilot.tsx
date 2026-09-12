@@ -80,7 +80,7 @@ export default function AICopilot() {
         </button>
       </div>
       <p className="meta" style={{ marginTop: 8 }}>
-        Butuh GEMINI_API_KEY aktif di Netlify agar AI bisa menjawab & mengeksekusi tools.
+        Butuh OPENROUTER_API_KEY aktif di Netlify agar AI bisa menjawab & mengeksekusi tools (model free met fallback automatis).
       </p>
     </div>
   );

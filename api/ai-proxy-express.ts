@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { query, queryOne } from './_db';
 import { requireUser } from './_auth';
 import { searchNotesSemantic } from './_embedding';
-import { buildSystemPrompt, callGemini, callOpenRouter, executeTool, handleMorningBrief } from './ai-proxy';
+import { buildSystemPrompt, callOpenRouter, executeTool, handleMorningBrief } from './ai-proxy';
 
 const router = Router();
 
@@ -66,18 +66,18 @@ router.post('/ai-proxy', async (req: Request, res: Response) => {
   history.push({ role: 'user', parts: [{ text: message }] });
 
   let responseText = '';
-  let modelUsed = 'gemini-2.0-flash';
+  let modelUsed = 'openrouter:free';
   const aiErrors: string[] = [];
 
   try {
     let result;
     try {
-      result = await callGemini(history, systemPrompt);
-    } catch (geminiErr: any) {
-      console.error('Gemini failed:', geminiErr.message);
-      aiErrors.push('Gemini: ' + geminiErr.message);
       result = await callOpenRouter(history, systemPrompt);
-      modelUsed = (result as any)?.modelUsed ?? 'openrouter-fallback';
+      modelUsed = (result as any)?.modelUsed ?? 'openrouter:free';
+    } catch (openRouterErr: any) {
+      console.error('OpenRouter failed:', openRouterErr.message);
+      aiErrors.push('OpenRouter: ' + openRouterErr.message);
+      throw openRouterErr;
     }
 
     const candidate = result?.candidates?.[0];
