@@ -8,9 +8,9 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'https://jade-alfajores-76f3dd.netlify.app',
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

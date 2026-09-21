@@ -72,6 +72,7 @@ router.get('/:table', async (req: Request, res: Response) => {
   const whereSql = where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '';
   const rows = await query(`SELECT * FROM ${table}${whereSql} ORDER BY ${orderBy} ${orderDir} LIMIT ${limit}`, values);
   return res.json({ data: rows });
+});
 
 router.get('/:table/:id', async (req: Request, res: Response) => {
   const { table, id } = req.params;
@@ -175,4 +176,3 @@ router.delete('/:table/:id', async (req: Request, res: Response) => {
 });
 
 export default router;
-});

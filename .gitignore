@@ -49,4 +49,12 @@ dist/
 /android
 
 .vercel
+.vercel
+.env*
+
+# local dev server build output & test artifacts
+.dev-build/
+_srvbuild/
+_srv.*
+_token.txt
 .env*

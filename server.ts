@@ -11,8 +11,9 @@ import aiProxyRouter from './api/ai-proxy-express';
 // helps `npm run dev`. Values already present in the environment are never
 // overwritten.
 try {
-  const envPath = path.join(__dirname, '.env');
-  if (fs.existsSync(envPath)) {
+  const candidates = [path.join(process.cwd(), '.env'), path.join(__dirname, '.env')];
+  for (const envPath of candidates) {
+    if (!fs.existsSync(envPath)) continue;
     for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
       const match = line.trim().match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
       if (match && !process.env[match[1]]) {

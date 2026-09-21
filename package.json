@@ -44,7 +44,7 @@
   },
   "scripts": {
     "start": "expo start",
-    "dev": "ts-node server.ts",
+    "dev": "tsc server.ts --ignoreConfig --ignoreDeprecations 6.0 --module commonjs --moduleResolution node10 --esModuleInterop --skipLibCheck --target es2020 --outDir .dev-build && node .dev-build/server.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
