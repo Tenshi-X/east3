@@ -65,8 +65,8 @@ export const api = {
   remove: (table: string, id: string) =>
     request(`/api/data/${table}/${id}`, { method: 'DELETE' }),
 
-  aiChat: (message: string, conversation_id: string) =>
-    request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ message, conversation_id }) }),
+  aiChat: (message: string, conversation_id: string, image?: string) =>
+    request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ message, conversation_id, image }) }),
   morningBrief: (date: string) =>
     request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ action: 'morning_brief', date }) }),
   semanticSearch: (query: string) =>

@@ -303,10 +303,23 @@ export async function callOpenRouter(
 
   const openAIMessages = [
     { role: 'system', content: systemPrompt },
-    ...messages.map((m: any) => ({
-      role: m.role === 'model' ? 'assistant' : m.role,
-      content: typeof m.parts === 'string' ? m.parts : m.parts?.[0]?.text ?? '',
-    })),
+    ...messages.map((m: any) => {
+      let content: any = typeof m.parts === 'string' ? m.parts : m.parts?.[0]?.text ?? '';
+
+      if (Array.isArray(m.parts) && m.parts.some(p => p.imageUrl || p.inlineData)) {
+        content = m.parts.map((p: any) => {
+          if (p.text) return { type: 'text', text: p.text };
+          if (p.imageUrl) return { type: 'image_url', image_url: { url: p.imageUrl } };
+          if (p.inlineData) return { type: 'image_url', image_url: { url: p.inlineData } };
+          return null;
+        }).filter(Boolean);
+      }
+
+      return {
+        role: m.role === 'model' ? 'assistant' : m.role,
+        content
+      };
+    }),
   ];
 
   const openAITools = TOOLS.map((t) => ({
@@ -689,7 +702,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (error || !user) return res.status(401).json({ error: error ?? 'Unauthorized' });
   const userId = user.id;
 
-  const { action, conversation_id, message, date } = req.body;
+  const { action, conversation_id, message, date, image } = req.body;
 
   // Get user profile for timezone
   const profile = await queryOne<{ timezone: string }>(
@@ -740,7 +753,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     parts: [{ text: m.content }],
   }));
 
-  history.push({ role: 'user', parts: [{ text: message }] });
+  const userParts: any[] = [{ text: message }];
+  if (image) {
+    userParts.push({ inlineData: image });
+  }
+  history.push({ role: 'user', parts: userParts });
 
   let responseText = '';
   let modelUsed = 'openrouter:free';
