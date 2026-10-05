@@ -87,13 +87,12 @@ export default function Habits() {
 
   return (
     <div>
-      <h1>✅ Habit Tracker</h1>
       <p className="page-sub">Bangun kebiasaan baik, satu hari demi satu hari</p>
       {err && <div className="error-box">{err}</div>}
 
       <div className="card">
         <h3>➕ Habit Baru</h3>
-        <div className="row wrap" style={{ gap: 8 }}>
+        <div className="form-grid habit-form">
           <input className="grow" placeholder="Nama habit (mis. Minum 2L air)" value={name} onChange={(e) => setName(e.target.value)} />
           <select value={freq} onChange={(e) => setFreq(e.target.value)}>
             <option value="daily">Harian</option>
@@ -119,8 +118,8 @@ export default function Habits() {
           const streak = streakOf(h.id);
           return (
             <div key={h.id} className="card" style={{ marginBottom: 10 }}>
-              <div className="row between">
-                <div className="row">
+              <div className="row between habit-card-row">
+                <div className="row habit-main">
                   <span className="dot" style={{ background: h.color ?? '#3fb950' }} />
                   <div>
                     <div>{h.name}</div>
@@ -129,7 +128,7 @@ export default function Habits() {
                     </div>
                   </div>
                 </div>
-                <div className="row">
+                <div className="row habit-actions">
                   <button className={`btn ${done ? 'ghost' : ''} small`} onClick={() => toggleToday(h)} disabled={busy}>
                     {done ? `✓ ${today}` : 'Check-in hari ini'}
                   </button>

@@ -88,13 +88,12 @@ export default function Workout() {
 
   return (
     <div>
-      <h1>🏋️ Workout Copilot</h1>
       <p className="page-sub">Rencana latihan & riwayat workout</p>
       {err && <div className="error-box">{err}</div>}
 
       <div className="card">
         <h3>➕ Rencana Latihan</h3>
-        <div className="row wrap" style={{ gap: 8 }}>
+        <div className="form-grid workout-form">
           <input className="grow" placeholder="Nama plan (mis. Push Day A)" value={pName} onChange={(e) => setPName(e.target.value)} />
           <select value={pSplit} onChange={(e) => setPSplit(e.target.value)}>
             {['push', 'pull', 'legs', 'upper', 'lower', 'full_body', 'custom'].map((s) => (
@@ -120,22 +119,22 @@ export default function Workout() {
         {plans.length === 0 && <p className="empty">Belum ada rencana latihan.</p>}
         {plans.map((p) => (
           <div key={p.id} className="card">
-            <div className="row between">
+            <div className="row between plan-header">
               <h3 style={{ marginBottom: 0 }}>{p.name}</h3>
               <span className="meta">{p.split_type}</span>
             </div>
             <p className="meta" style={{ margin: '6px 0 12px' }}>
               Hari {p.day_of_week}
             </p>
-            <div className="row wrap" style={{ gap: 8, marginBottom: 10 }}>
+            <div className="exercise-fields">
               <input
                 className="grow"
                 placeholder="Latihan (mis. Bench Press)"
                 value={exName}
                 onChange={(e) => setExName(e.target.value)}
               />
-              <input type="number" value={exReps} onChange={(e) => setExReps(e.target.value)} style={{ width: 70 }} />
-              <input type="number" value={exWeight} onChange={(e) => setExWeight(e.target.value)} style={{ width: 90 }} />
+              <input aria-label="Jumlah repetisi" type="number" value={exReps} onChange={(e) => setExReps(e.target.value)} />
+              <input aria-label="Beban kilogram" type="number" value={exWeight} onChange={(e) => setExWeight(e.target.value)} />
             </div>
             <button className="btn full" onClick={() => logWorkout(p)} disabled={busy}>
               ✅ Log Workout Sekarang

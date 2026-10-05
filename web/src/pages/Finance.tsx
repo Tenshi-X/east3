@@ -188,8 +188,7 @@ exp: dayTxs.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) 
 });
 const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
   return (
-    <div>
-      <h1>💰 Finance Copilot</h1>
+    <div className="finance-page">
       <p className="page-sub">Catat transaksi & pantau budget bulanan</p>
       {err && <div className="error-box">{err}</div>}
 
@@ -198,7 +197,7 @@ const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
         <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
       </div>
 
-      <div className="grid cols-2">
+      <div className="grid summary-grid">
         <div className="card">
           <h3>Pemasukan</h3>
           <div className="stat-value green">{rupiah(income)}</div>
@@ -209,39 +208,38 @@ const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
         </div>
       </div>
 
+      <div className="card section cashflow-card">
+        <h3>Cashflow 7 Hari Terakhir</h3>
+        <div className="chart">
+          {days.map((d: any) => (
+            <div key={d.label} className="bar">
+              <div className="fill expense" style={{ height: `${Math.round((d.exp / maxDay) * 100)}%` }} />
+              <div className="fill income" style={{ height: `${Math.round((d.inc / maxDay) * 100)}%` }} />
+              <div className="lbl">{d.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="chart-legend">
+          <span className="budget-chip expense-key">■ Pengeluaran</span>
+          <span className="budget-chip income-key">■ Pemasukan</span>
+        </div>
+      </div>
+
       <div className="grid cols-2 section">
         <div className="card">
           <h3>➕ Transaksi Baru</h3>
-          <div className="row wrap" style={{ gap: 8, marginBottom: 8 }}>
-<div className="card" style={{ marginBottom: 16 }}>
-<h3>Cashflow 7 Hari Terakhir</h3>
-<div className="chart">
-{days.map((d: any) => (
-<div key={d.label} className="bar">
-<div className="fill" style={{ width: '100%', height: `${Math.round((d.exp / maxDay) * 100)}%`, background: 'var(--primary)' }} />
-<div className="fill" style={{ width: '100%', height: `${Math.round((d.inc / maxDay) * 100)}%`, background: 'var(--leaf)' }} />
-<div className="lbl">{d.label}</div>
-</div>
-))}
-</div>
-<div className="row" style={{ gap: 16, marginTop: 8, justifyContent: 'center' }}>
-<span className="budget-chip" style={{ color: 'var(--primary)' }}>■ Pengeluaran</span>
-<span className="budget-chip" style={{ color: 'var(--leaf)' }}>■ Pemasukan</span>
-</div>
-</div>
+          <div className="form-grid transaction-form">
             <input
+              className="amount-field"
               type="number"
               placeholder="Jumlah (Rp)"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              style={{ width: 140 }}
             />
             <select value={type} onChange={(e) => setType(e.target.value)}>
               <option value="expense">Pengeluaran</option>
               <option value="income">Pemasukan</option>
             </select>
-          </div>
-          <div className="row wrap" style={{ gap: 8 }}>
             <select value={category} onChange={(e) => setCategory(e.target.value)}>
               {categories.map((c: string) => (
                 <option key={c} value={c}>
@@ -249,11 +247,9 @@ const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
                 </option>
               ))}
             </select>
-            <input className="grow" placeholder="Catatan (opsional)" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          <div className="row wrap" style={{ gap: 8, marginTop: 8 }}>
+            <input className="note-field" placeholder="Catatan (opsional)" value={note} onChange={(e) => setNote(e.target.value)} />
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            <button className="btn" onClick={onAddTx} disabled={busy}>
+            <button className="btn submit-field" onClick={onAddTx} disabled={busy}>
               Simpan
             </button>
           </div>
@@ -261,7 +257,7 @@ const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
 
         <div className="card">
           <h3>🎯 Budget {month}</h3>
-          <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
+          <div className="form-grid budget-form">
             <select value={bCategory} onChange={(e) => setBCategory(e.target.value)}>
               {categories.map((c: string) => (
                 <option key={c} value={c}>
@@ -274,7 +270,6 @@ const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
               placeholder="Limit (Rp)"
               value={bLimit}
               onChange={(e) => setBLimit(e.target.value)}
-              style={{ width: 130 }}
             />
             <button className="btn" onClick={onAddBudget} disabled={busy}>
               Set
@@ -287,8 +282,8 @@ const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
             const over = spent > Number(b.monthly_limit);
             return (
               <div key={b.id} style={{ marginBottom: 12 }}>
-                <div className="row between">
-                  <span>
+                <div className="row between budget-row">
+                  <span className="budget-copy">
                     {b.category} — {rupiah(spent)} / {rupiah(Number(b.monthly_limit))}
                   </span>
                   <span style={{ color: over ? 'var(--red)' : 'var(--muted)' }}>{pct}%</span>
@@ -306,7 +301,7 @@ const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
         <h3>🧾 Transaksi {month}</h3>
         {txs.length === 0 && <p className="empty">Belum ada transaksi bulan ini.</p>}
         {txs.map((t: any) => (
-          <div key={t.id} className="item">
+          <div key={t.id} className="item transaction-row">
             <span className="dot" style={{ background: t.type === 'income' ? 'var(--green)' : 'var(--red)' }} />
             <div className="title">
               <div>

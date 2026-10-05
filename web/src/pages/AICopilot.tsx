@@ -51,8 +51,7 @@ export default function AICopilot() {
   };
 
   return (
-    <div>
-      <h1>🤖 AI Copilot</h1>
+    <div className="ai-page">
       <p className="page-sub">Asisten AI yang bisa kelola data Anda lewat bahasa natural</p>
       {err && <div className="error-box">{err}</div>}
 
@@ -71,14 +70,14 @@ export default function AICopilot() {
       </div>
 
       {imageFile && (
-        <div style={{ padding: '8px', background: 'var(--surface-color)', borderRadius: '12px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid var(--border-color)' }}>
-          <img src={imageFile} alt="Preview" style={{ height: '48px', width: 'auto', borderRadius: '4px', objectFit: 'cover' }} />
-          <button className="btn" style={{ padding: '4px 12px', background: 'var(--danger-color)', minWidth: 0, height: '32px' }} onClick={() => setImageFile(null)}>✖ Batal</button>
+        <div className="attachment-preview">
+          <img src={imageFile} alt="Preview lampiran" />
+          <button className="btn danger small" onClick={() => setImageFile(null)}>✖ Batal</button>
         </div>
       )}
 
-      <div className="row" style={{ gap: 8 }}>
-        <label className="btn-icon" style={{ cursor: 'pointer', background: 'var(--surface-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '24px' }}>
+      <div className="chat-composer">
+        <label className="attach-button" aria-label="Lampirkan gambar">
           📎
           <input 
             type="file" 

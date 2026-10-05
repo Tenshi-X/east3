@@ -94,7 +94,7 @@ return (
 <div className="card" style={{ marginBottom: 12 }}>
 <h3>Tulis dengan bahasa sehari-hari</h3>
 <p className="meta" style={{ marginBottom: 8 }}>Contoh: &quot;Meeting besok jam 9&quot; atau &quot;Gym tiap Senin Rabu Jumat&quot;</p>
-<div className="row" style={{ gap: 8 }}>
+<div className="search-row">
 <input className="grow" placeholder="Jadwalkan... (AI akan paham)" value={nl} onChange={(e) => setNl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && nlParse()} />
 <button className="btn" onClick={nlParse} disabled={nlBusy}>{nlBusy ? 'Memahami...' : 'Pahami'}</button>
 </div>
@@ -124,7 +124,7 @@ return (
 )}
 
 {view === 'week' && (
-<div className="row" style={{ gap: 4, alignItems: 'stretch' }}>
+<div className="calendar-week">
 {weekDays.map(d => {
 const k = keyOf(d);
 return (
@@ -154,13 +154,13 @@ return (
 
 <div className="card" style={{ marginBottom: 12 }}>
 <h3>Tambah Event Manual</h3>
-<div className="row wrap" style={{ gap: 8 }}>
-<input className="grow" placeholder="Judul event" value={title} onChange={(e) => setTitle(e.target.value)} />
+<div className="form-grid event-form">
+<input className="event-title-field" placeholder="Judul event" value={title} onChange={(e) => setTitle(e.target.value)} />
 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
 <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
 <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
 <select value={color} onChange={(e) => setColor(e.target.value)}>{COLORS.map(c => <option key={c} value={c}>{c}</option>)}</select>
-<button className="btn" onClick={addEvent} disabled={busy}>Simpan</button>
+<button className="btn event-submit-field" onClick={addEvent} disabled={busy}>Simpan</button>
 </div>
 </div>
 

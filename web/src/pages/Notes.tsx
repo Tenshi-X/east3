@@ -64,13 +64,12 @@ export default function Notes() {
 
   return (
     <div>
-      <h1>🧠 Second Brain</h1>
       <p className="page-sub">Catat & cari catatan dengan semantic search (AI)</p>
       {err && <div className="error-box">{err}</div>}
 
       <div className="card">
         <h3>🔍 Cari Catatan (Semantic)</h3>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="search-row">
           <input
             className="grow"
             placeholder='mis. "ide bisnis" atau "cara tidur lebih baik"'

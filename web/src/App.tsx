@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Routes, Route, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { getToken, setToken, loadUser, saveUser } from './api';
 import { api } from './api';
@@ -21,10 +21,10 @@ const NAV = [
 ];
 
 const QUICK_ACTIONS = [
-  { label: 'New Task', icon: '✅', to: '/?new=task' },
-  { label: 'New Event', icon: '📅', to: '/calendar?new=1' },
-   { label: 'New Expense', icon: '💰', to: '/finance?new=1' },
-    { label: 'New Note', icon: '📝', to: '/notes?new=1' },
+  { label: 'Tugas Baru', icon: '✅', to: '/?new=task' },
+  { label: 'Acara Baru', icon: '📅', to: '/calendar?new=1' },
+   { label: 'Pengeluaran', icon: '💰', to: '/finance?new=1' },
+    { label: 'Catatan Baru', icon: '📝', to: '/notes?new=1' },
 ];
 
 function initials(u: any): string {
@@ -41,11 +41,16 @@ export default function App() {
  const [user, setUser] = useState<any>(loadUser());
  const [loading, setLoading] = useState<boolean>(!!getToken());
  const [qaOpen, setQaOpen] = useState(false);
+ const contentRef = useRef<HTMLElement>(null);
 
  useEffect(() => {
    if (!getToken()) { setLoading(false); return; }
    api.me().then((r: any) => { setUser(r.user); saveUser(r.user); }).catch(() => { setToken(null); saveUser(null); setUser(null); }).finally(() => setLoading(false));
  }, []);
+
+ useLayoutEffect(() => {
+   if (contentRef.current) contentRef.current.scrollTop = 0;
+ }, [loc.pathname, loc.search]);
 
  const logout = () => { setToken(null); saveUser(null); setUser(null); nav('/login'); };
 
@@ -61,6 +66,9 @@ export default function App() {
     '/ai': 'Atlas AI',
      '/finance': 'Keuangan',
       '/profile': 'Profil',
+      '/workout': 'Workout',
+      '/habits': 'Habit Tracker',
+      '/notes': 'Second Brain',
  };
  const title = titles[loc.pathname] ?? 'Atlas';
  const todayLabel = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -77,7 +85,7 @@ export default function App() {
          <button className="avatar" onClick={() => nav('/profile')}>{initials(user)}</button>
        </div>
      </header>
-     <main className="app-content">
+     <main className="app-content" ref={contentRef}>
        <div className="page" key={loc.pathname}>
          <Routes>
            <Route path="/" element={<Dashboard user={user} />} />
@@ -92,15 +100,18 @@ export default function App() {
          </Routes>
        </div>
      </main>
-     <button className={'fab' + (qaOpen ? ' open' : '')} onClick={() => setQaOpen(o => !o)} aria-label="Tambah cepat">+</button>
+     <button className={'fab' + (qaOpen ? ' open' : '')} onClick={() => setQaOpen(o => !o)} aria-label="Tambah cepat" aria-expanded={qaOpen}>+</button>
      <nav className="bottom-nav">
        {NAV.map(item => (
-         <NavLink key={item.to} to={item.to} end={item.end} className="nav-item">{item.icon}<span>{item.label}</span></NavLink>
+         <NavLink key={item.to} to={item.to} end={item.end} className="nav-item">
+           <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+           <span className="nav-label">{item.label}</span>
+         </NavLink>
        ))}
      </nav>
      {qaOpen && (
        <div className="sheet-overlay" onClick={() => setQaOpen(false)}>
-         <div className="sheet" onClick={(e) => e.stopPropagation()}>
+         <div className="sheet" role="dialog" aria-modal="true" aria-label="Tambah Cepat" onClick={(e) => e.stopPropagation()}>
            <div className="sheet-handle" />
            <div className="sheet-title">Tambah Cepat</div>
            <div className="qa-grid">
