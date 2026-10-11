@@ -1,5 +1,9 @@
+import { Capacitor } from '@capacitor/core';
+
 const TOKEN_KEY = 'east3_token';
 const USER_KEY = 'east3_user';
+const NATIVE_API_ORIGIN = 'https://east3.netlify.app';
+const API_ORIGIN = (import.meta.env.VITE_API_URL || (Capacitor.isNativePlatform() ? NATIVE_API_ORIGIN : '')).replace(/\/$/, '');
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -25,7 +29,7 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(path, { ...options, headers });
+  const res = await fetch(`${API_ORIGIN}${path}`, { ...options, headers });
   const text = await res.text();
   let body: any = null;
   try {
@@ -41,14 +45,23 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
     return;
   }
   if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+  if (body?.error) throw new Error(body.error);
   return body;
+}
+
+async function authenticate(path: string, data: Record<string, unknown>): Promise<any> {
+  const result = await request(path, { method: 'POST', body: JSON.stringify(data) });
+  if (!result?.token || !result?.user) {
+    throw new Error('Respons autentikasi dari server tidak valid');
+  }
+  return result;
 }
 
 export const api = {
   register: (email: string, password: string, display_name?: string) =>
-    request('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password, display_name }) }),
+    authenticate('/api/auth/register', { email, password, display_name }),
   login: (email: string, password: string) =>
-    request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    authenticate('/api/auth/login', { email, password }),
   me: () => request('/api/auth/me'),
 
   list: (table: string, params: Record<string, string> = {}) =>
