@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "app": {
+      "root": ".",
+      "framework": "express",
+      "entrypoint": "server.ts",
+      "buildCommand": "npm run build"
+    },
+    "web": {
+      "root": "web",
+      "framework": "vite",
+      "devCommand": "npm run dev",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist",
+      "rewrites": [
+        {
+          "source": "/((?!@|src/|node_modules/|assets/|icons/|.*\\.[^/]+$).*)",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  },
+  "rewrites": [
+    { "source": "/api", "destination": { "service": "app" } },
+    { "source": "/api/(.*)", "destination": { "service": "app" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}

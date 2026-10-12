@@ -2,8 +2,8 @@ import { Capacitor } from '@capacitor/core';
 
 const TOKEN_KEY = 'east3_token';
 const USER_KEY = 'east3_user';
-const NATIVE_API_ORIGIN = 'https://east3.netlify.app';
-const API_ORIGIN = (import.meta.env.VITE_API_URL || (Capacitor.isNativePlatform() ? NATIVE_API_ORIGIN : '')).replace(/\/$/, '');
+// Browsers use the deployment's /api routes; native builds need a public origin.
+const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -25,6 +25,9 @@ export function saveUser(u: any) {
 }
 
 async function request(path: string, options: RequestInit = {}): Promise<any> {
+  if (Capacitor.isNativePlatform() && !API_ORIGIN) {
+    throw new Error('VITE_API_URL harus diisi dengan URL Vercel sebelum build Android');
+  }
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;

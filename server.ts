@@ -39,6 +39,10 @@ app.use('/api/auth', authRouter);
 app.use('/api/data', dataRouter);
 app.use('/api', aiProxyRouter);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+export default app;

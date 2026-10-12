@@ -1,6 +1,6 @@
 # Atlas — Personal AI Secretary (PWA)
 
-Atlas adalah versi Progressive Web App dari east3: asisten AI pribadi mobile-first yang dapat diinstal (Add to Home Screen) di Android, tetap menggunakan backend + Neon PostgreSQL yang sama, dan tetap di-deploy ke Netlify.
+Atlas adalah Progressive Web App dari east3: asisten AI pribadi mobile-first yang dapat diinstal (Add to Home Screen) di Android, menggunakan backend Express + Neon PostgreSQL, dan di-deploy sebagai satu project Vercel dengan dua services.
 
 > Dokumentasi di bawah bagian ini adalah catatan teknis lama untuk east3 (Expo native + API). Berikut adalah ringkasan arsitektur baru.
 
@@ -8,7 +8,7 @@ Atlas adalah versi Progressive Web App dari east3: asisten AI pribadi mobile-fir
 
 ```
 ┌──────────────────┐      ┌───────────────────────────┐      ┌─────────────┐
-│  Atlas PWA       │─────▶│  Server API (Netlify Fn)   │─────▶│  Neon DB    │
+│  Atlas PWA       │─────▶│  Server API (Vercel)       │─────▶│  Neon DB    │
 │  (web/, Vite)    │      │  /api/auth, /api/data,    │      │  (Postgres) │
 │  installable     │      │  /api/ai-proxy (server)   │      │  + pgvector │
 └──────────────────┘      └───────────────────────────┘      └─────────────┘
@@ -43,12 +43,14 @@ als pemanggil akhir `openrouter/free` (auto-router).
 Lihat bagian selanjutnya dari file ini (east3 legacy docs) untuk:
 - Neon schema di `db/schema.sql`
 - Endpoint REST: `/api/auth/*`, `/api/data/*`, `/api/ai-proxy`
-- Cara setup & deploy Netlify.
+- Cara setup & deploy Vercel Services.
 
 ## Folder penting
-- `web/` — kode PWA (React 19 + Vite) yang di-deploy ke Netlify (`netlify.toml` → `web/dist`)
-- `src/` — Aplikasi ekspo native yang tetap (untuk Android/iOS native build)
-- `api/` — serverless functions (auth, data, ai-proxy)
+- `web/` — kode PWA (React 19 + Vite), serta project Android Capacitor
+- `server.ts` — entrypoint Express untuk service `app`
+- `api/` — handler auth, data, ai-proxy, dan akses database
+- `vercel.json` — build dan routing kedua services
+- `netlify.toml`, `netlify/functions/` — konfigurasi deployment Netlify lama, disimpan untuk rollback
 - `db/schema.sql` — schema PostgreSQL/Neon
 # east3 - Personal Life OS
 
@@ -86,30 +88,60 @@ The mobile app never talks to the database directly. All requests go through the
 5. Run the entire script in `db/schema.sql`
 6. Enable the `vector` extension if prompted (the schema does it automatically)
 
-### 2. API (Vercel)
-1. Install Vercel CLI: `npm i -g vercel`
-2. Deploy the API: `vercel`
-3. Set environment variables in Vercel (Settings → Environment Variables):
+### 2. Deploy PWA + API (Vercel Services)
+1. Import repository ini di Vercel. Pilih **Root Directory `.`**, bukan `web`; konfigurasi kedua services ada di `vercel.json`.
+2. Services dibangun terpisah: `app` (Express, `server.ts`) dan `web` (Vite, hasil build `web/dist`). Build masing-masing memakai `npm run build`; pengaturan build ada pada services, bukan di tingkat atas.
+3. Salin environment variables dari project Netlify ke Vercel (Settings → Environment Variables), untuk Production dan Preview sesuai kebutuhan:
    - `DATABASE_URL` — your Neon connection string
    - `OPENROUTER_API_KEY` — from [OpenRouter](https://openrouter.ai/settings/keys) (the ONLY AI provider; chat always uses free models with automatic fallback)
    - `OPENROUTER_FALLBACK_MODELS` — optional, comma-separated free-model priority order
    - `GEMINI_API_KEY` — optional, only for vector embeddings (no free OpenRouter embedding endpoint yet); without it, note search degrades to keyword search
    - `JWT_SECRET` — any long random string (e.g. `openssl rand -hex 32`)
-4. Note your deployment URL (e.g. `https://east3.vercel.app`)
+4. Gunakan **DATABASE_URL dan JWT_SECRET yang sama** seperti Netlify agar data dan token akun tetap kompatibel. Jangan menjalankan ulang schema pada database yang sudah berisi data.
+5. Deploy lalu verifikasi `/`, `/login`, `/calendar`, aset `/assets/*`, serta login dan `/api/auth/me`. Browser memakai `/api/*` pada domain deployment yang sama, sehingga `VITE_API_URL` tidak perlu diisi untuk PWA. Hapus nilai `VITE_API_URL` lama yang menunjuk Netlify jika ada.
+6. Setelah verifikasi berhasil, pindahkan domain custom ke project Vercel jika memakai domain sendiri. PWA yang dipasang dari domain `netlify.app` perlu dibuka/dipasang ulang dari domain Vercel; penyimpanan login browser terpisah antar domain.
 
-### 3. App Development
-1. Copy `.env.example` to `.env` and fill in:
-   ```
-   EXPO_PUBLIC_API_URL=https://your-app.vercel.app
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the app:
-   ```bash
-   npx expo start
-   ```
+Routing publik:
+- `/api` dan `/api/*` → `app`. Prefix `/api` tetap diterima oleh Express.
+- Semua path lainnya → `web`; fallback `/index.html` mendukung navigasi React Router.
+- Fallback frontend hanya mengambil path halaman; file dengan ekstensi, direktori aset/ikon, serta path modul Vite tetap dilayani langsung. `devCommand` memakai script npm dan port dari Vercel agar dapat dijalankan di Windows.
+- Tidak ada service khusus internal dan tidak ada service binding. `web` adalah aplikasi statis yang memanggil API dari browser, bukan fungsi server. Binding hanya tersedia pada functions saat runtime; Neon dan OpenRouter merupakan layanan eksternal.
+
+Referensi: [Vercel Services](https://vercel.com/docs/services), [routing](https://vercel.com/docs/services/routing), [bindings](https://vercel.com/docs/services/bindings).
+
+### 3. Development lokal
+Gunakan Node.js 22.9+ atau 24. Install dependency di kedua folder:
+
+```bash
+npm ci
+npm ci --prefix web
+```
+
+Buat `.env` di root dengan environment backend di atas, lalu jalankan kedua services beserta routing Vercel:
+
+```bash
+vercel dev --local
+```
+
+Mode lokal tidak mengambil environment dari dashboard. Untuk memakai project yang sudah ditautkan beserta environment Development, jalankan `vercel dev`.
+
+Alternatif development biasa: jalankan `npm run dev` di root dan `npm run dev --prefix web` pada terminal kedua. Proxy Vite ke `localhost:3000` hanya dipakai pada mode development ini.
+
+Validasi build:
+
+```bash
+npm run build
+npm run build --prefix web
+```
+
+### 4. Android (Capacitor)
+Sebelum build Android, isi URL **publik** deployment Vercel yang sebenarnya melalui environment `VITE_API_URL` atau file `web/.env.local`:
+
+```dotenv
+VITE_API_URL=https://your-project.vercel.app
+```
+
+Gunakan origin tanpa akhiran `/api`. Ini pengaturan build frontend, bukan service binding. URL Vercel tidak ditebak oleh kode. Setelah mengisi nilainya, build ulang frontend, jalankan `npx cap sync android` dari folder `web`, lalu build/pasang ulang Android.
 
 ## API Endpoints
 

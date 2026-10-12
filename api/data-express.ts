@@ -1,8 +1,9 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request as ExpressRequest, Response } from 'express';
 import { query, queryOne } from './_db';
 import { requireUser } from './_auth';
 
 const router = Router();
+type Request = ExpressRequest<{ table: string; id: string }>;
 
 const ALLOWED_TABLES = new Set([
   'events', 'priorities', 'transactions', 'budgets',

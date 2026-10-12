@@ -306,7 +306,7 @@ export async function callOpenRouter(
     ...messages.map((m: any) => {
       let content: any = typeof m.parts === 'string' ? m.parts : m.parts?.[0]?.text ?? '';
 
-      if (Array.isArray(m.parts) && m.parts.some(p => p.imageUrl || p.inlineData)) {
+      if (Array.isArray(m.parts) && m.parts.some((p: any) => p.imageUrl || p.inlineData)) {
         content = m.parts.map((p: any) => {
           if (p.text) return { type: 'text', text: p.text };
           if (p.imageUrl) return { type: 'image_url', image_url: { url: p.imageUrl } };
