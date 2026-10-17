@@ -106,6 +106,62 @@ test('pagination uses stable ordering and a lookahead row, with exclusive month 
   assert.equal((await data('GET', 'transactions', undefined, undefined, { offset: '-1' })).statusCode, 400);
 });
 
+test('wallets are scoped to the user and balances use all linked transactions', async () => {
+  await data('GET', 'wallets');
+  const sql = queries.at(-1).sql;
+  assert.match(sql, /opening_balance \+ COALESCE/);
+  assert.match(sql, /CASE WHEN type = 'income' THEN amount ELSE -amount END/);
+  assert.match(sql, /wallet_id = wallets.id AND transactions.user_id = \$1/);
+  assert.match(sql, /WHERE wallets.user_id = \$1/);
+  assert.ok(!sql.includes('occurred_at'));
+  assert.equal((await data('POST', 'wallets', { name: ' GoPay ', type: 'ewallet', opening_balance: 100000 })).statusCode, 201);
+  assert.ok(queries.at(-1).params.includes('GoPay'));
+  assert.ok(queries.at(-1).params.includes('user-A'));
+  for (const payload of [{ name: ' ' }, { opening_balance: 'NaN' }, { type: 'foreign-type' }]) {
+    assert.equal((await data('POST', 'wallets', payload)).statusCode, 400);
+  }
+});
+
+test('transaction wallet assignment requires ownership on insert and update', async () => {
+  parentOwned = false;
+  for (const method of ['POST', 'PATCH']) {
+    queries.length = 0;
+    assert.equal((await data(method, 'transactions', { wallet_id: 'foreign' }, method === 'PATCH' ? 'tx' : undefined)).statusCode, 404);
+    assert.ok(queries.every(q => !/^(INSERT|UPDATE)/.test(q.sql)));
+  }
+  assert.equal((await data('POST', 'transactions', { wallet_id: null, amount: 25, type: 'expense', category: 'food' })).statusCode, 201);
+  parentOwned = true;
+  assert.equal((await data('PATCH', 'transactions', { wallet_id: 'own' }, 'tx')).statusCode, 200);
+  assert.match(queries.at(-1).sql, /transactions.user_id/);
+});
+
+test('habit increments add atomically, clamp at zero and calculate completion against the target', async () => {
+  const res = await data('POST', 'habit_logs', { habit_id: 'own', date: '2026-10-17', delta: 250 }, 'increment');
+  assert.equal(res.statusCode, 200);
+  const executed = queries.at(-1);
+  assert.match(executed.sql, /FROM habits WHERE id = \$1 AND user_id = \$2/);
+  assert.match(executed.sql, /ON CONFLICT \(habit_id, date\) DO UPDATE/);
+  assert.match(executed.sql, /GREATEST\(0, COALESCE\(habit_logs.value, 0\) \+ \$4::numeric\)/);
+  assert.match(executed.sql, /SELECT COALESCE\(target_value, 1\) FROM habits/);
+  assert.equal(executed.params[1], 'user-A');
+  assert.equal(executed.params[3], 250);
+  assert.equal((await data('POST', 'habit_logs', { habit_id: 'own', date: '2026-10-17', delta: -250 }, 'increment')).statusCode, 200);
+  rows = [];
+  assert.equal((await data('POST', 'habit_logs', { habit_id: 'foreign', date: '2026-10-17', delta: 250 }, 'increment')).statusCode, 404);
+  for (const delta of [0, '250', null, -Infinity, 0.001]) {
+    assert.equal((await data('POST', 'habit_logs', { habit_id: 'own', date: '2026-10-17', delta }, 'increment')).statusCode, 400);
+  }
+});
+
+test('habit targets and step sizes reject empty, zero and non-finite values', async () => {
+  for (const field of ['target_value', 'step_value']) {
+    for (const value of [0, -1, null, '', 'NaN', true, 0.001]) {
+      assert.equal((await data('POST', 'habits', { name: 'Water', [field]: value })).statusCode, 400);
+    }
+  }
+  assert.equal((await data('POST', 'habits', { name: 'Water', target_value: 2000, step_value: 250, settings: { template: 'water' } })).statusCode, 201);
+});
+
 test('AI forwards image-only requests, restores recent history in order, and persists both messages', async () => {
   aiHistory = [{ role: 'assistant', content: 'last reply' }, { role: 'user', content: 'previous question' }];
   let supplied;
@@ -151,6 +207,18 @@ function browserModule(file, imports) {
   return mod.exports;
 }
 
+test('water estimates stay within the starting range and glass/litre displays agree', () => {
+  const habits = browserModule('habits.ts', {});
+  assert.equal(habits.waterEstimate(70), 2100);
+  assert.equal(habits.waterEstimate(20), 1500);
+  assert.equal(habits.waterEstimate(300), 3000);
+  const habit = { target_value: 2000, step_value: 250, unit: 'ml', settings: { template: 'water', glass_ml: 250, display_unit: 'glasses' } };
+  assert.equal(habits.habitProgressText(habit, 500), '2 / 8 gelas · 0,5 liter');
+  habit.settings.display_unit = 'liters';
+  assert.equal(habits.habitProgressText(habit, 500), '0,5 / 2 liter · 2 gelas');
+  assert.equal(habits.habitDone(habit, { value: 1750, is_completed: true }), false);
+});
+
 test('client pagination includes transactions beyond 1,000 rows and uses the Android API origin', async () => {
   let calls = 0;
   const mod = browserModule('api.ts', {
@@ -183,8 +251,8 @@ function component(file, api) {
     useFeedback: () => ({ notify() {}, confirm: async () => true }),
     changed() {}, messageOf: error => error.message,
   };
-  for (const name of ['Button','Field','Form','Icon','IconButton','LoadingState','Modal','Segments','Fab','EmptyState','ErrorState']) ui[name] = function View() {};
-  const mod = browserModule(file, { react, 'react-router-dom': { useNavigate: () => () => {} }, '../ui': ui, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
+  for (const name of ['Button','Field','Form','Icon','IconButton','LoadingState','Modal','Segments','Fab','EmptyState','ErrorState','Section']) ui[name] = function View() {};
+  const mod = browserModule(file, { react, 'react-router-dom': { useNavigate: () => () => {} }, '../ui': ui, '../habits': browserModule('habits.ts', {}), '../HabitProgress': { default: function View() {} }, '../useLocalDay': { useLocalDay: todayStr }, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
   function render() { cursor = 0; effects = []; tree = mod.default({}); return tree; }
   function find(predicate, value) {
     if (arguments.length === 1) value = tree;
@@ -220,8 +288,7 @@ test('Workout forms submit schema-compatible plan, log, and set payloads', async
 test('Habit form marks a completed day using date/value/is_completed', async () => {
   let write;
   const ui = component('pages/Habits.tsx', {
-    list: async () => ({ data: [{ id: 'habit', name: 'Water', target_value: 2 }] }),
-    listAll: async () => ({ data: [] }),
+    listAll: async table => ({ data: table === 'habits' ? [{ id: 'habit', name: 'Water', target_value: 2 }] : [] }),
     upsert: async (table, row, conflict) => { write = { table, row, conflict }; },
   });
   await ui.mount();
@@ -233,8 +300,7 @@ test('Habit form marks a completed day using date/value/is_completed', async () 
 test('Habit check-in can be undone without leaving the day completed', async () => {
   let write;
   const ui = component('pages/Habits.tsx', {
-    list: async () => ({ data: [{ id: 'habit', name: 'Water', target_value: 2 }] }),
-    listAll: async () => ({ data: [{ habit_id: 'habit', date: '2026-10-17', is_completed: true, value: 2 }] }),
+    listAll: async table => ({ data: table === 'habits' ? [{ id: 'habit', name: 'Water', target_value: 2 }] : [{ habit_id: 'habit', date: '2026-10-17', is_completed: true, value: 2 }] }),
     upsert: async (table, row) => { write = row; },
   });
   await ui.mount();

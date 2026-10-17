@@ -89,6 +89,10 @@ export const api = {
     request(`/api/data/${table}/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (table: string, id: string) =>
     request(`/api/data/${table}/${id}`, { method: 'DELETE' }),
+  incrementHabit: (habit_id: string, date: string, delta: number) =>
+    request('/api/data/habit_logs/increment', {
+      method: 'POST', body: JSON.stringify({ habit_id, date, delta }),
+    }),
 
   aiChat: (message: string, conversation_id: string, image?: string) =>
     request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ message, conversation_id, image }) }),

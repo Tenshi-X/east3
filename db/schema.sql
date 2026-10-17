@@ -61,9 +61,21 @@ CREATE INDEX idx_priorities_user_date ON priorities(user_id, date);
 -- ============================================================
 -- TRANSACTIONS (Finance Copilot)
 -- ============================================================
+CREATE TABLE IF NOT EXISTS wallets (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name            TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 80),
+  type            TEXT NOT NULL DEFAULT 'ewallet' CHECK (type IN ('bank', 'ewallet', 'cash', 'other')),
+  opening_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_wallets_user ON wallets(user_id);
+
 CREATE TABLE IF NOT EXISTS transactions (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  wallet_id    UUID REFERENCES wallets(id),
   amount       NUMERIC(15,2) NOT NULL CHECK (amount > 0),
   type         TEXT NOT NULL CHECK (type IN ('income', 'expense')),
   category     TEXT NOT NULL,
@@ -74,6 +86,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 
 CREATE INDEX idx_transactions_user_date ON transactions(user_id, occurred_at);
+CREATE INDEX idx_transactions_wallet ON transactions(wallet_id);
 
 -- ============================================================
 -- BUDGETS (Finance Copilot)
@@ -144,6 +157,8 @@ CREATE TABLE IF NOT EXISTS habits (
   frequency     TEXT DEFAULT 'daily' CHECK (frequency IN ('daily', 'weekly')),
   icon          TEXT DEFAULT '✅',
   color         TEXT DEFAULT '#088395',
+  step_value    NUMERIC(10,2) NOT NULL DEFAULT 1 CHECK (step_value > 0),
+  settings      JSONB NOT NULL DEFAULT '{}',
   is_active     BOOLEAN DEFAULT TRUE,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );

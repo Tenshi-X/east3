@@ -1209,3 +1209,75 @@ legend {
   border-radius: 50%;
   margin-right: 8px;
 }
+.habit-templates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.template-catalog > summary {
+  min-height: 48px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+.habit-template {
+  min-width: 0;
+  padding: 16px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.habit-template strong {
+  display: block;
+  margin: 8px 0 4px;
+}
+.habit-template .meta {
+  display: block;
+}
+.habit-item + .habit-item {
+  border-top: 1px solid var(--border);
+}
+.habit-item > .list-row {
+  border-bottom: 0;
+}
+.habit-progress {
+  padding: 0 16px 16px;
+}
+.habit-counter {
+  margin-top: 12px;
+  gap: 8px;
+}
+.habit-counter .btn:first-child {
+  min-width: 48px;
+}
+.water-preferences {
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+.water-preferences summary {
+  min-height: 48px;
+  cursor: pointer;
+  font-weight: 550;
+}
+.water-preferences p {
+  margin-top: 12px;
+}
+.hydration-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--primary);
+}
+.wallet-balance {
+  margin: 16px 0 8px;
+}
+@media (max-width: 359px) {
+  .habit-templates {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,5 +1,8 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import HabitProgress from "../HabitProgress";
+import { useLocalDay } from "../useLocalDay";
+import { habitDone, habitStep, habitTarget } from "../habits";
 import {
   api,
   addDays,
@@ -61,7 +64,7 @@ export default function Dashboard({ user }: { user: any }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string[]>([]);
   const [briefBusy, setBriefBusy] = useState(false);
-  const today = todayStr();
+  const today = useLocalDay();
   const load = useCallback(async () => {
     const requests: Record<string, () => Promise<any>> = {
       events: () =>
@@ -168,9 +171,9 @@ export default function Dashboard({ user }: { user: any }) {
   const events = data.events.data;
   const habits = data.habits.data;
   const logs = data.logs.data;
-  const completed = habits.filter((h) =>
-    logs.some((l) => l.habit_id === h.id && l.is_completed),
-  ).length;
+  const habitLog = (id: string) =>
+    logs.find((l) => l.habit_id === id && localDate(l.date) === today);
+  const completed = habits.filter((h) => habitDone(h, habitLog(h.id))).length;
   const income = data.tx.data
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -301,38 +304,60 @@ export default function Dashboard({ user }: { user: any }) {
                   </div>
                   <div style={{ marginTop: 12 }}>
                     {habits.slice(0, 3).map((h) => {
-                      const done = logs.some(
-                        (l) => l.habit_id === h.id && l.is_completed,
-                      );
+                      const log = habitLog(h.id);
+                      const done = habitDone(h, log);
                       return (
-                        <button
-                          className="list-row"
-                          type="button"
-                          key={h.id}
-                          disabled={pending.includes(h.id)}
-                          aria-pressed={done}
-                          onClick={() =>
-                            void mutate(h.id, () =>
-                              api.upsert(
-                                "habit_logs",
-                                {
-                                  habit_id: h.id,
-                                  date: today,
-                                  value: done ? 0 : Number(h.target_value ?? 1),
-                                  is_completed: !done,
-                                },
-                                "habit_id,date",
-                              ),
-                            )
-                          }
-                        >
-                          <Icon
-                            name={
-                              done ? "check_circle" : "radio_button_unchecked"
+                        <div className="habit-item" key={h.id}>
+                          <div className="list-row">
+                            <IconButton
+                              icon={
+                                done ? "check_circle" : "radio_button_unchecked"
+                              }
+                              label={`${done ? "Batalkan check-in" : "Check-in"} ${h.name}`}
+                              disabled={pending.includes(h.id)}
+                              aria-pressed={done}
+                              onClick={() =>
+                                void mutate(h.id, () => {
+                                  const date = todayStr();
+                                  const complete = !habitDone(
+                                    h,
+                                    logs.find(
+                                      (l) =>
+                                        l.habit_id === h.id &&
+                                        localDate(l.date) === date,
+                                    ),
+                                  );
+                                  return api.upsert(
+                                    "habit_logs",
+                                    {
+                                      habit_id: h.id,
+                                      date,
+                                      value: complete ? habitTarget(h) : 0,
+                                      is_completed: complete,
+                                    },
+                                    "habit_id,date",
+                                  );
+                                })
+                              }
+                            />
+                            <span className="copy">{h.name}</span>
+                          </div>
+                          <HabitProgress
+                            habit={h}
+                            value={Number(log?.value || 0)}
+                            pending={pending.includes(h.id)}
+                            onIncrement={(direction) =>
+                              void mutate(h.id, () =>
+                                api.incrementHabit(
+                                  h.id,
+                                  todayStr(),
+                                  Math.round(habitStep(h) * direction * 100) /
+                                    100,
+                                ),
+                              )
                             }
                           />
-                          <span className="copy">{h.name}</span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>

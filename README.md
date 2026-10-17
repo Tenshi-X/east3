@@ -162,7 +162,18 @@ cd web/android
 
 Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.1** (`versionCode 2`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
 
-Deploy backend dan frontend terbaru ke Vercel sebelum memakai APK: perbaikan akses antar-akun, penyimpanan chat, lampiran gambar, dan pagination membutuhkan backend terbaru. Pengujian lokal memakai database dan provider AI tiruan; pengujian HP serta koneksi produksi tetap diperlukan. Tidak ada migrasi wajib untuk database yang sudah mengikuti schema repository.
+Deploy backend dan frontend terbaru ke Vercel sebelum memakai APK: perbaikan akses antar-akun, penyimpanan chat, lampiran gambar, dan pagination membutuhkan backend terbaru. Pengujian lokal memakai database dan provider AI tiruan; pengujian HP serta koneksi produksi tetap diperlukan. Untuk pembaruan kantong dan template kebiasaan, jalankan migrasi berikut terlebih dahulu.
+
+### Kantong keuangan dan template kebiasaan
+
+Untuk database yang sudah ada, jalankan **hanya** `db/migrations/20261017_wallets_habit_templates.sql` di Neon SQL Editor sebelum deploy backend dan frontend. Migrasi dapat dijalankan ulang dan mempertahankan data lama. Instalasi baru menggunakan `db/schema.sql` seperti biasa.
+
+- **Keuangan → Kantong**: buat atau ubah rekening bank, GoPay/e-wallet, tunai, atau kantong lain, beserta saldo awalnya. Saldo kantong dihitung dari saldo awal dan seluruh transaksi yang terhubung, terlepas dari bulan yang dipilih. Saldo awal tidak masuk ringkasan pemasukan bulanan.
+- Form transaksi menyediakan pilihan kantong. Transaksi lama tetap berlabel **Tanpa kantong**; gunakan tombol ubah untuk menempatkannya ke rekening yang sesuai. Filter kantong berlaku pada daftar transaksi. Kantong yang masih memiliki transaksi tidak dapat dihapus sampai transaksinya dipindahkan.
+- **Kebiasaan → Template sehari-hari** atau **Kebiasaan baru**: pilih minum air, membaca, jalan kaki, meditasi, jurnal, atau tidur teratur. Target, satuan, dan jumlah per ketukan dapat disesuaikan. Tombol tambah/kurang dan checklist tersedia juga di Beranda; pencatatan tetap per tanggal lokal seperti kebiasaan sebelumnya.
+- Template air menyimpan volume dalam ml, dengan tampilan gelas atau liter dan ukuran gelas yang dapat diatur. Preferensi tinggi/berat tersimpan per kebiasaan. Opsi perkiraan memakai berat badan (30 ml/kg/hari, dibulatkan ke 100 ml); saran awal aplikasi dibatasi 1.500–3.000 ml, dan tinggi tidak digunakan dalam rumus. Ini adalah titik awal target untuk dewasa yang bisa diubah, bukan jaminan kecukupan cairan. [Sumber panduan NHS](https://rightdecisions.scot.nhs.uk/media/l5cbmhjn/hydration-poster.pdf). Aktivitas, cuaca, makanan/minuman lain, dan arahan pembatasan cairan juga perlu diperhitungkan.
+
+API `POST /api/data/habit_logs/increment` menerima `habit_id`, `date` (YYYY-MM-DD), dan `delta`. Penambahan dilakukan secara atomik di PostgreSQL, dibatasi minimal nol, dan status selesai mengikuti target kebiasaan. Kepemilikan kantong dan kebiasaan diperiksa menggunakan akun yang login.
 
 ## API Endpoints
 

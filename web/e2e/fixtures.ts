@@ -43,6 +43,7 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
         },
       ],
       budgets: [],
+      wallets: [],
       workout_plans: [
         { id: "plan-1", name: "Push A", split_type: "push", day_of_week: [6] },
         { id: "plan-2", name: "Pull B", split_type: "pull", day_of_week: [1] },
@@ -123,6 +124,19 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
     }
     if (method === "GET") {
       let rows = [...(mock.tables[table] || [])];
+      if (table === "wallets")
+        rows = rows.map((w) => ({
+          ...w,
+          balance:
+            Number(w.opening_balance) +
+            (mock.tables.transactions || [])
+              .filter((t) => t.wallet_id === w.id)
+              .reduce(
+                (sum, t) =>
+                  sum + Number(t.amount) * (t.type === "income" ? 1 : -1),
+                0,
+              ),
+        }));
       for (const [key, value] of url.searchParams) {
         if (key.startsWith("filter_eq_")) {
           const field = key.slice(10);
@@ -134,6 +148,28 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
       return json({ data: rows, has_more: false });
     }
     mock.writes.push({ table, method, body });
+    if (table === "habit_logs" && id === "increment") {
+      const habit = mock.tables.habits.find((h) => h.id === body.habit_id);
+      if (!habit) return json({ error: "Kebiasaan tidak ditemukan" }, 404);
+      let log = mock.tables.habit_logs.find(
+        (l) => l.habit_id === body.habit_id && l.date === body.date,
+      );
+      if (!log) {
+        log = {
+          id: `log-${mock.writes.length}`,
+          habit_id: body.habit_id,
+          date: body.date,
+          value: 0,
+        };
+        mock.tables.habit_logs.push(log);
+      }
+      log.value = Math.max(
+        0,
+        Math.round((Number(log.value) + body.delta) * 100) / 100,
+      );
+      log.is_completed = log.value >= Number(habit.target_value || 1);
+      return json({ data: log });
+    }
     if (id === "upsert") {
       const keys = body.on_conflict
         .split(",")
@@ -147,6 +183,17 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
       }
     }
     if (method === "DELETE") {
+      if (
+        table === "wallets" &&
+        mock.tables.transactions.some((t) => t.wallet_id === id)
+      )
+        return json(
+          {
+            error:
+              "Kantong masih memiliki transaksi. Pindahkan transaksinya sebelum menghapus kantong.",
+          },
+          409,
+        );
       mock.tables[table] = (mock.tables[table] || []).filter(
         (r) => r.id !== id,
       );
