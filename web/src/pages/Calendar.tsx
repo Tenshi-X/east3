@@ -1,188 +1,386 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api, timeOf, localDate } from '../api';
-
-const COLORS = ['#3B82F6', '#16A34A', '#F59E0B', '#EF4444', '#A855F7', '#0EA5E9'];
-const DOW = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-
-function keyOf(date: Date) {
-return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-export default function CalendarPage() {
-const [events, setEvents] = useState<any[]>([]);
-const [err, setErr] = useState('');
-const [busy, setBusy] = useState(false);
-const [view, setView] = useState<'day' | 'week' | 'month'>('month');
-const [sel, setSel] = useState(new Date());
-const [title, setTitle] = useState('');
-const [date, setDate] = useState(keyOf(new Date()));
-const [start, setStart] = useState('09:00');
-const [end, setEnd] = useState('10:00');
-const [color, setColor] = useState(COLORS[0]);
-const [nl, setNl] = useState('');
-const [nlBusy, setNlBusy] = useState(false);
-
-const setSelectedDate = (d: Date) => { setSel(d); setDate(keyOf(d)); };
-
-const load = useCallback(async () => {
-try {
-const r = await api.listAll('events', { order_by: 'start_time', order_dir: 'asc' });
-setEvents(r.data ?? []);
-} catch (e: any) { setErr(e.message); }
-}, []);
-
-useEffect(() => { load(); }, [load]);
-useEffect(() => { setDate(keyOf(new Date())); }, []);
-
-const addEvent = async () => {
-if (!title.trim()) return;
-setBusy(true);
-setErr('');
-try {
-const startTime = new Date(`${date}T${start}:00`);
-const endTime = new Date(`${date}T${end}:00`);
-if (endTime <= startTime) throw new Error('Waktu selesai harus setelah waktu mulai');
-await api.create('events', { title: title.trim(), start_time: startTime.toISOString(), end_time: endTime.toISOString(), color });
-setTitle('');
-load();
-} catch (e: any) { setErr(e.message); }
-finally { setBusy(false); }
-};
-
-const removeEvent = async (id: string) => { await api.remove('events', id); load(); };
-
-const nlParse = async () => {
-if (!nl.trim() || nlBusy) return;
-setNlBusy(true);
-setErr('');
-try {
-const conv = await api.create('ai_conversations', { title: nl.trim() });
-await api.aiChat(nl.trim(), conv.data.id);
-load();
-} catch (e: any) { setErr('AI gagal memproses: ' + e.message); }
-finally { setNlBusy(false); }
-};
-
-const byDay = (d: string) => events.filter(e => localDate(e.start_time) === d);
-const selKey = keyOf(sel);
-const hasEvent = (d: string) => byDay(d).length > 0;
-
-const monthStart = new Date(sel.getFullYear(), sel.getMonth(), 1);
-const gridStart = new Date(monthStart);
-gridStart.setDate(1 - monthStart.getDay());
-const cells: Date[] = [];
-for (let i = 0; i < 42; i++) {
-const c = new Date(gridStart);
-c.setDate(gridStart.getDate() + i);
-cells.push(c);
-}
-
-const weekStart = new Date(sel);
-weekStart.setDate(sel.getDate() - sel.getDay());
-const weekDays = Array.from({ length: 7 }, (_x, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; });
-
-const todayKey = keyOf(new Date());
-const move = (dir: number) => {
-const d = new Date(sel);
-if (view === 'month') { d.setDate(1); d.setMonth(d.getMonth() + dir); }
-else d.setDate(d.getDate() + dir * (view === 'week' ? 7 : 1));
-setSelectedDate(d);
-};
-return (
-<div>
-{err && <div className="error-box">{err}</div>}
-
-<div className="seg" style={{ marginBottom: 12 }}>
-<button className={view === 'day' ? 'active' : ''} onClick={() => setView('day')}>Hari</button>
-<button className={view === 'week' ? 'active' : ''} onClick={() => setView('week')}>Minggu</button>
-<button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>Bulan</button>
-</div>
-
-<div className="card" style={{ marginBottom: 12 }}>
-<h3>Tulis dengan bahasa sehari-hari</h3>
-<p className="meta" style={{ marginBottom: 8 }}>Contoh: &quot;Meeting besok jam 9&quot; atau &quot;Gym tiap Senin Rabu Jumat&quot;</p>
-<div className="search-row">
-<input className="grow" placeholder="Jadwalkan... (AI akan paham)" value={nl} onChange={(e) => setNl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && nlParse()} />
-<button className="btn" onClick={nlParse} disabled={nlBusy}>{nlBusy ? 'Memahami...' : 'Pahami'}</button>
-</div>
-</div>
-
-<div className="card" style={{ marginBottom: 12 }}>
-<div className="cal-header">
-<button className="icon-btn" onClick={() => move(-1)}>&#8249;</button>
-<div className="cal-title">{view === 'day' ? sel.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }) : MONTHS[sel.getMonth()] + ' ' + sel.getFullYear()}</div>
-<button className="icon-btn" onClick={() => move(1)}>&#8250;</button>
-</div>
-
-{view === 'month' && (
-<div className="cal-grid">
-{DOW.map(d => <div key={d} className="cal-dow">{d}</div>)}
-{cells.map(c => {
-const k = keyOf(c);
-const inMonth = c.getMonth() === sel.getMonth();
-return (
-<button key={k} className={'cal-day' + (inMonth ? '' : ' other') + (k === todayKey ? ' today' : '') + (k === selKey ? ' selected' : '')} onClick={() => setSelectedDate(c)}>
-{c.getDate()}
-{hasEvent(k) && <span className="dots"><i /></span>}
-</button>
-);
-})}
-</div>
-)}
-
-{view === 'week' && (
-<div className="calendar-week">
-{weekDays.map(d => {
-const k = keyOf(d);
-return (
-<div key={k} className="grow" style={{ flex: 1, minWidth: 0 }}>
-<div className="cal-dow">{DOW[d.getDay()]}</div>
-<button className={'cal-day' + (k === todayKey ? ' today' : '') + (k === selKey ? ' selected' : '')} onClick={() => setSelectedDate(d)}>{d.getDate()}</button>
-{byDay(k).slice(0, 3).map(ev => <div key={ev.id} className="meta" style={{ fontSize: 10 }}>{ev.title}</div>)}
-</div>
-);
-})}
-</div>
-)}
-
-{view === 'day' && (
-<div>
-{byDay(selKey).length === 0 && <p className="empty">Tidak ada agenda pada hari ini.</p>}
-{byDay(selKey).map(ev => (
-<div key={ev.id} className="item">
-<span className="dot" style={{ background: ev.color || COLORS[0] }} />
-<div className="title"><div>{ev.title}</div><div className="meta">{timeOf(ev.start_time)} - {timeOf(ev.end_time)}</div></div>
-<button className="btn danger small" onClick={() => removeEvent(ev.id)}>Hapus</button>
-</div>
-))}
-</div>
-)}
-</div>
-
-<div className="card" style={{ marginBottom: 12 }}>
-<h3>Tambah Event Manual</h3>
-<div className="form-grid event-form">
-<input className="event-title-field" placeholder="Judul event" value={title} onChange={(e) => setTitle(e.target.value)} />
-<input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-<input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-<input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-<select value={color} onChange={(e) => setColor(e.target.value)}>{COLORS.map(c => <option key={c} value={c}>{c}</option>)}</select>
-<button className="btn event-submit-field" onClick={addEvent} disabled={busy}>Simpan</button>
-</div>
-</div>
-
-<div className="section">
-<h3 style={{ marginBottom: 12 }}>Semua Agenda</h3>
-{events.map(ev => (
-<div key={ev.id} className="item">
-<span className="dot" style={{ background: ev.color || COLORS[0] }} />
-<div className="title"><div>{ev.title}</div><div className="meta">{localDate(ev.start_time)} {timeOf(ev.start_time)} - {timeOf(ev.end_time)}</div></div>
-<button className="btn danger small" onClick={() => removeEvent(ev.id)}>Hapus</button>
-</div>
-))}
-{events.length === 0 && <p className="empty">Belum ada event.</p>}
-</div>
-</div>
-);
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api, addDays, localDate, timeOf, todayStr } from "../api";
+import {
+  Button,
+  changed,
+  EmptyState,
+  ErrorState,
+  Fab,
+  Field,
+  Form,
+  IconButton,
+  LoadingState,
+  messageOf,
+  Modal,
+  Section,
+  Segments,
+  useCreatePanel,
+  useFeedback,
+  usePageLoad,
+} from "../ui";
+const COLORS = [
+  { value: "#3B82F6", label: "Biru" },
+  { value: "#16A34A", label: "Hijau" },
+  { value: "#F59E0B", label: "Kuning" },
+  { value: "#EF4444", label: "Merah" },
+  { value: "#A855F7", label: "Ungu" },
+];
+const DOW = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+export default function Calendar() {
+  const nav = useNavigate();
+  const panel = useCreatePanel("/calendar");
+  const feedback = useFeedback();
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<"day" | "week" | "month">("day");
+  const [selected, setSelected] = useState(todayStr());
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState(todayStr());
+  const [start, setStart] = useState("09:00");
+  const [end, setEnd] = useState("10:00");
+  const [color, setColor] = useState(COLORS[0].value);
+  const [method, setMethod] = useState<"manual" | "ai">("manual");
+  const [natural, setNatural] = useState("");
+  const load = useCallback(async () => {
+    try {
+      const r = await api.listAll("events", {
+        order_by: "start_time",
+        order_dir: "asc",
+      });
+      setEvents(r.data || []);
+      setError("");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  usePageLoad("/calendar", load);
+  const sel = new Date(`${selected}T12:00:00`);
+  const weekStart = addDays(selected, -sel.getDay());
+  const gridStart = new Date(sel.getFullYear(), sel.getMonth(), 1);
+  gridStart.setDate(1 - gridStart.getDay());
+  const days =
+    view === "month"
+      ? Array.from({ length: 42 }, (_, i) => addDays(todayStr(gridStart), i))
+      : Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const agenda = events.filter((e) => localDate(e.start_time) === selected);
+  const move = (direction: number) => {
+    if (view === "month") {
+      const d = new Date(sel);
+      d.setDate(1);
+      d.setMonth(d.getMonth() + direction);
+      setSelected(todayStr(d));
+    } else
+      setSelected(addDays(selected, direction * (view === "week" ? 7 : 1)));
+  };
+  const openNew = () => {
+    setDate(selected);
+    setFormError("");
+    nav("/calendar?new=1");
+  };
+  const save = async () => {
+    if (busy) return;
+    setBusy(true);
+    setFormError("");
+    try {
+      if (method === "ai") {
+        if (!natural.trim())
+          throw new Error("Tulis agenda yang ingin ditambahkan.");
+        const conv = await api.create("ai_conversations", {
+          title: natural.trim(),
+        });
+        await api.aiChat(natural.trim(), conv.data.id);
+        setNatural("");
+        feedback.notify(
+          "Permintaan diproses. Periksa agenda yang ditambahkan Atlas.",
+        );
+      } else {
+        if (!title.trim()) throw new Error("Isi judul acara.");
+        const from = new Date(`${date}T${start}:00`);
+        const to = new Date(`${date}T${end}:00`);
+        if (!Number.isFinite(from.getTime()) || to <= from)
+          throw new Error("Waktu selesai harus setelah waktu mulai.");
+        await api.create("events", {
+          title: title.trim(),
+          start_time: from.toISOString(),
+          end_time: to.toISOString(),
+          color,
+        });
+        setSelected(date);
+        setTitle("");
+        feedback.notify("Acara ditambahkan");
+      }
+      panel.close();
+      changed();
+    } catch (e) {
+      setFormError(messageOf(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (event: any) => {
+    if (busy || !(await feedback.confirm("Hapus acara ini?"))) return;
+    setBusy(true);
+    try {
+      await api.remove("events", event.id);
+      changed();
+      feedback.notify("Acara dihapus");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <div className="screen-scroll">
+        <div className="content-width">
+          <Segments
+            label="Tampilan kalender"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "day", label: "Hari" },
+              { value: "week", label: "Minggu" },
+              { value: "month", label: "Bulan" },
+            ]}
+          />
+          <div className="calendar-toolbar">
+            <IconButton
+              icon="chevron_left"
+              label="Periode sebelumnya"
+              onClick={() => move(-1)}
+            />
+            <h2>
+              {sel.toLocaleDateString("id-ID", {
+                month: "long",
+                year: "numeric",
+              })}
+            </h2>
+            <IconButton
+              icon="chevron_right"
+              label="Periode berikutnya"
+              onClick={() => move(1)}
+            />
+          </div>
+          {view === "month" && (
+            <div className="compact-date">
+              <Field label="Pilih tanggal">
+                <input
+                  type="date"
+                  value={selected}
+                  onChange={(e) => {
+                    if (e.target.value) setSelected(e.target.value);
+                  }}
+                />
+              </Field>
+            </div>
+          )}
+          {view !== "month" && (
+            <div className="compact-week">
+              <div className="calendar-grid">
+                {Array.from({ length: 5 }, (_, i) =>
+                  addDays(selected, i - 2),
+                ).map((key) => (
+                  <div key={key}>
+                    <div className="calendar-dow">
+                      {DOW[new Date(`${key}T12:00:00`).getDay()]}
+                    </div>
+                    <button
+                      type="button"
+                      className="calendar-day"
+                      aria-label={new Date(
+                        `${key}T12:00:00`,
+                      ).toLocaleDateString("id-ID", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })}
+                      aria-pressed={key === selected}
+                      onClick={() => setSelected(key)}
+                    >
+                      {new Date(`${key}T12:00:00`).getDate()}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="calendar-card">
+            <div className="calendar-grid">
+              {DOW.map((d) => (
+                <span className="calendar-dow" key={d}>
+                  {d}
+                </span>
+              ))}
+              {days.map((key) => {
+                const d = new Date(`${key}T12:00:00`);
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    aria-label={d.toLocaleDateString("id-ID", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                    aria-pressed={key === selected}
+                    className={`calendar-day ${key === todayStr() ? "today" : ""} ${d.getMonth() !== sel.getMonth() ? "other" : ""}`}
+                    onClick={() => setSelected(key)}
+                  >
+                    {d.getDate()}
+                    {events.some((e) => localDate(e.start_time) === key) && (
+                      <span className="event-dot" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <Button variant="text" onClick={() => setSelected(todayStr())}>
+            Kembali ke hari ini
+          </Button>
+          <ErrorState message={error} onRetry={() => void load()} />
+          <Section
+            title={sel.toLocaleDateString("id-ID", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          >
+            {loading ? (
+              <LoadingState />
+            ) : agenda.length ? (
+              <div className="list">
+                {agenda.map((e) => (
+                  <div className="list-row" key={e.id}>
+                    <span className="event-time">
+                      <strong>{timeOf(e.start_time)}</strong>
+                      <small>{timeOf(e.end_time)}</small>
+                    </span>
+                    <div className="copy">
+                      <strong>{e.title}</strong>
+                      {e.description && <p>{e.description}</p>}
+                    </div>
+                    <IconButton
+                      icon="delete"
+                      label={`Hapus ${e.title}`}
+                      disabled={busy}
+                      onClick={() => void remove(e)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              !error && (
+                <EmptyState title="Belum ada agenda" icon="event">
+                  Tambahkan acara untuk tanggal ini.
+                </EmptyState>
+              )
+            )}
+          </Section>
+        </div>
+      </div>
+      <Fab label="Acara baru" onClick={openNew} />
+      <Modal
+        open={panel.open}
+        title="Acara baru"
+        onClose={panel.close}
+        busy={busy}
+      >
+        <Segments
+          label="Cara menambah acara"
+          value={method}
+          onChange={setMethod}
+          options={[
+            { value: "manual", label: "Isi sendiri" },
+            { value: "ai", label: "Bantuan AI" },
+          ]}
+        />
+        <Form onSubmit={save}>
+          {method === "manual" ? (
+            <>
+              <Field label="Judul acara">
+                <input
+                  autoFocus
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </Field>
+              <Field label="Tanggal">
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </Field>
+              <div className="field-pair">
+                <Field label="Mulai">
+                  <input
+                    type="time"
+                    required
+                    value={start}
+                    onChange={(e) => setStart(e.target.value)}
+                  />
+                </Field>
+                <Field label="Selesai">
+                  <input
+                    type="time"
+                    required
+                    value={end}
+                    onChange={(e) => setEnd(e.target.value)}
+                  />
+                </Field>
+              </div>
+              <fieldset>
+                <legend>Warna acara</legend>
+                <div className="swatches">
+                  {COLORS.map((c) => (
+                    <button
+                      className="swatch"
+                      type="button"
+                      key={c.value}
+                      aria-label={c.label}
+                      aria-pressed={color === c.value}
+                      onClick={() => setColor(c.value)}
+                    >
+                      <span style={{ background: c.value }} />
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </>
+          ) : (
+            <Field
+              label="Ceritakan agendamu"
+              hint="Contoh: Meeting besok jam 9 sampai jam 10."
+            >
+              <textarea
+                autoFocus
+                required
+                value={natural}
+                onChange={(e) => setNatural(e.target.value)}
+              />
+            </Field>
+          )}
+          <ErrorState message={formError} />
+          <Button type="submit" disabled={busy}>
+            {busy
+              ? "Menyimpan…"
+              : method === "ai"
+                ? "Tambahkan dengan AI"
+                : "Simpan acara"}
+          </Button>
+        </Form>
+      </Modal>
+    </>
+  );
 }

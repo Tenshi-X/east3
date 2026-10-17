@@ -3,7 +3,7 @@
    network-only for /api/* (never cache user/API data aggressively).
    Version bump invalidates previous caches on deploy.
 */
-const CACHE_NAME = 'atlas-shell-v2';
+const CACHE_NAME = 'atlas-shell-v3';
 const APP_SHELL = [
   '/',
   '/index.html',

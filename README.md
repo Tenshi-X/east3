@@ -23,13 +23,13 @@ met **fallback automatis**: jika satu model free rate-limited (429) / exhausted 
 als pemanggil akhir `openrouter/free` (auto-router).
 
 ## Fitur PWA (sesuai PRD)
-- **Manifest**: `web/public/manifest.webmanifest` — Atlas, `standalone`, portrait, theme `#3B82F6`, background putih.
+- **Manifest**: `web/public/manifest.webmanifest` — Atlas, `standalone`, portrait, theme dan background `#f8f9fd`.
 - **Ikon**: `web/public/icons/icon.svg` (SVG tunggal, dipakai untuk `any` & `maskable`).
 - **Service Worker**: `web/public/sw.js` — cache app-shell; **tidak** mengalik API `/api/*`.
 - **Splash / install**: Chrome Android otomatis memakai icon + nama + `theme_color` dari manifest.
 - **App shell**: Top App Bar sticky → konten scroll → **FAB** → **Bottom Navigation** 5 tab
-  (Home, Kalender, AI, Keuangan, Profil) dengan **FAB quick actions** (New Task/Event/Expense/Note).
-- **Desktop**: app-frame 430px di tengah (looks like a phone app di layar besar, `@media min-width: 768px`).
+  (Beranda, Kalender, AI, Keuangan, Ruang Saya) dengan aksi tambah kontekstual. Beranda menyediakan tambah cepat tugas/acara/pengeluaran/catatan; form dibuka dalam panel atau editor terpisah.
+- **Adaptif**: satu kolom pada ponsel; mulai 600px navigasi berpindah ke samping dan konten memakai lebar yang tersedia.
 - **Animasi 180–250 ms**: card lift, sheet slide-up, FAB rotate, progress fill, page transition.
 
 ## Halaman
@@ -37,7 +37,7 @@ als pemanggil akhir `openrouter/free` (auto-router).
 - **Calendar**: view Hari/Minggu/Bulan + input bahasa alami (mis. “Meeting besok jam 9”, "Gym tiap Senin Rabu Jumat") yang di-parse AI jadi event.
 - **AI**: chat dengan tool-calling AI (conversation, history, undo aksi).
 - **Finance**: tambah cepat (<10 detik), kategori, ringkasan bulanan, cashflow chart 7 hari, indikator budget.
-- **Profil**: info akun, tautan ke Workout / Habits / Second Brain, dan logout.
+- **Ruang Saya**: akses Workout / Kebiasaan / Catatan. **Profil** dibuka dari avatar untuk informasi akun dan keluar.
 
 ## Backend & Database
 Lihat bagian selanjutnya dari file ini (east3 legacy docs) untuk:
@@ -200,3 +200,41 @@ Supported operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `ilike`, `in`
 - **Vercel Proxy**: AI keys must be secured on a backend. Node.js serverless functions on Vercel are the AI proxy.
 - **Neon + pgvector**: Free PostgreSQL with native vector support for fast semantic search.
 - **Custom JWT Auth**: Lightweight auth without external dependencies — HMAC-SHA256 signed tokens with per-user salt for passwords.
+
+
+## Validasi UI Android
+
+Antarmuka memakai komponen bersama Material 3, ikon SVG lokal, form berlabel,
+panel bawah untuk isian singkat, dan editor layar penuh untuk Catatan/Workout.
+Navigasi dan keadaan halaman dipertahankan saat berganti tab. API/database tetap kompatibel.
+
+Pengujian browser memakai API tiruan tanpa mengubah data produksi:
+
+```powershell
+npm run test:e2e --prefix web
+```
+
+Chrome harus tersedia; gunakan `PLAYWRIGHT_CHANNEL=msedge` jika memakai Edge.
+Untuk server pratinjau yang sudah aktif, isi `ATLAS_TEST_URL` dengan alamat lokalnya.
+Tes mencakup navigasi, ukuran 320–600px, lanskap dan teks besar, pintasan tambah,
+konfirmasi hapus, payload Workout/Kebiasaan, draf gagal disimpan, dan chat dengan gambar.
+
+Pada Windows, jika Gradle gagal dengan `Unable to establish loopback connection`,
+gunakan JDK 21 dan arahkan socket sementara Java ke direktori pendek yang sudah ada:
+
+```powershell
+New-Item -ItemType Directory -Path .dev-build -Force | Out-Null
+$env:JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=$((Resolve-Path .dev-build).Path)"
+```
+
+Verifikasi keyboard native, gesture/three-button navigation, cutout, dan TalkBack
+pada perangkat Android tetap diperlukan sebelum merilis aplikasi.
+
+Untuk pemeriksaan native otomatis pada emulator yang sudah menjalankan APK debug:
+
+```powershell
+npm run test:android --prefix web
+```
+
+Pemeriksaan memakai API tiruan, hanya memilih emulator, dan memulihkan sesi emulator
+setelah selesai. Bukti tangkapan layar berada di `web/test-results/`.

@@ -177,8 +177,15 @@ function component(file, api) {
   };
   const jsx = (type, props) => ({ type, props: props ?? {} });
   const todayStr = date => date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '2026-10-17';
-  const mod = browserModule(file, { react, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
-  function render() { cursor = 0; effects = []; tree = mod.default(); return tree; }
+    const ui = {
+    usePageLoad: (_path, load) => effects.push(load),
+    useCreatePanel: () => ({ open: true, close() {} }),
+    useFeedback: () => ({ notify() {}, confirm: async () => true }),
+    changed() {}, messageOf: error => error.message,
+  };
+  for (const name of ['Button','Field','Form','Icon','IconButton','LoadingState','Modal','Segments','Fab','EmptyState','ErrorState']) ui[name] = function View() {};
+  const mod = browserModule(file, { react, 'react-router-dom': { useNavigate: () => () => {} }, '../ui': ui, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
+  function render() { cursor = 0; effects = []; tree = mod.default({}); return tree; }
   function find(predicate, value) {
     if (arguments.length === 1) value = tree;
     if (!value || typeof value !== 'object') return;
@@ -198,12 +205,13 @@ test('Workout forms submit schema-compatible plan, log, and set payloads', async
     create: async (table, row) => { writes.push({ table, row }); return { data: { id: 'new-log' } }; },
   });
   await ui.mount();
-  ui.find(x => x.props.placeholder?.startsWith('Nama plan')).props.onChange({ target: { value: 'Push' } }); ui.render();
-  await ui.find(x => x.type === 'button' && x.props.onClick?.name === 'addPlan').props.onClick();
+  ui.find(x => x.props.placeholder === 'Contoh: Push Day A').props.onChange({ target: { value: 'Push' } }); ui.render();
+  await ui.find(x => x.props.onSubmit?.name === 'addPlan').props.onSubmit();
   assert.deepEqual(JSON.parse(JSON.stringify(writes[0].row.day_of_week)), [1]);
   ui.render();
-  ui.find(x => x.props.placeholder?.startsWith('Latihan')).props.onChange({ target: { value: 'Bench' } }); ui.render();
-  await ui.find(x => x.type === 'button' && String(x.props.children).includes('Log Workout')).props.onClick();
+  ui.find(x => x.props.className === 'workout-link').props.onClick(); ui.render();
+  ui.find(x => x.props.placeholder === 'Contoh: Bench Press').props.onChange({ target: { value: 'Bench' } }); ui.render();
+  await ui.find(x => x.props.onSubmit?.name === 'saveWorkout').props.onSubmit();
   assert.equal(writes[1].row.date, '2026-10-17');
   assert.equal(writes[2].row.workout_log_id, 'new-log');
   assert.equal(writes[2].row.weight, 0); assert.equal(writes[2].row.reps, 10);
@@ -217,7 +225,7 @@ test('Habit form marks a completed day using date/value/is_completed', async () 
     upsert: async (table, row, conflict) => { write = { table, row, conflict }; },
   });
   await ui.mount();
-  await ui.find(x => x.type === 'button' && x.props.children === 'Check-in hari ini').props.onClick();
+  await ui.find(x => x.props.label === 'Check-in Water').props.onClick();
   assert.equal(write.row.date, '2026-10-17'); assert.equal(write.row.value, 2);
   assert.equal(write.row.is_completed, true); assert.equal(write.conflict, 'habit_id,date');
 });
@@ -230,7 +238,7 @@ test('Habit check-in can be undone without leaving the day completed', async () 
     upsert: async (table, row) => { write = row; },
   });
   await ui.mount();
-  await ui.find(x => x.type === 'button' && x.props.children === '✓ 2026-10-17').props.onClick();
+  await ui.find(x => x.props.label === 'Batalkan check-in Water').props.onClick();
   assert.equal(write.is_completed, false); assert.equal(write.value, 0);
 });
 
@@ -243,5 +251,5 @@ test('AI page restores persisted messages when reopened', async () => {
   await ui.mount();
   assert.equal(filters.filter_eq_conversation_id, 'existing-conversation');
   assert.equal(filters.order_dir, 'asc');
-  assert.ok(ui.find(x => x.props.className === 'bubble assistant' && x.props.children === 'Saved answer'));
+  assert.ok(ui.find(x => x.props.className === 'bubble assistant' && JSON.stringify(x.props.children).includes('Saved answer')));
 });

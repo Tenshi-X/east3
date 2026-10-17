@@ -1,178 +1,377 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api, todayStr, localDate } from '../api';
-
-const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api, localDate, todayStr } from "../api";
+import {
+  Button,
+  changed,
+  EmptyState,
+  ErrorState,
+  Fab,
+  Field,
+  Form,
+  Icon,
+  IconButton,
+  LoadingState,
+  messageOf,
+  Modal,
+  Segments,
+  useCreatePanel,
+  useFeedback,
+  usePageLoad,
+} from "../ui";
+const DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const SPLITS: Record<string, string> = {
+  push: "Push",
+  pull: "Pull",
+  legs: "Kaki",
+  upper: "Tubuh atas",
+  lower: "Tubuh bawah",
+  full_body: "Seluruh tubuh",
+  custom: "Kustom",
+};
 export default function Workout() {
+  const nav = useNavigate();
+  const panel = useCreatePanel("/workout");
+  const feedback = useFeedback();
   const [plans, setPlans] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [sets, setSets] = useState<any[]>([]);
-  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const [pName, setPName] = useState('');
-  const [pSplit, setPSplit] = useState('push');
-  const [pDay, setPDay] = useState('1');
-
-  const [exName, setExName] = useState('');
-  const [exReps, setExReps] = useState('10');
-  const [exWeight, setExWeight] = useState('0');
-
+  const [tab, setTab] = useState<"plans" | "history">("plans");
+  const [name, setName] = useState("");
+  const [split, setSplit] = useState("push");
+  const [day, setDay] = useState("1");
+  const [selected, setSelected] = useState<any>(null);
+  const [exercise, setExercise] = useState("");
+  const [reps, setReps] = useState("10");
+  const [weight, setWeight] = useState("0");
+  const [logId, setLogId] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
       const [p, l] = await Promise.all([
-        api.list('workout_plans', { order_by: 'day_of_week', order_dir: 'asc' }),
-        api.list('workout_logs', { order_by: 'date', order_dir: 'desc', limit: '50' }),
+        api.list("workout_plans", {
+          order_by: "day_of_week",
+          order_dir: "asc",
+        }),
+        api.list("workout_logs", {
+          order_by: "date",
+          order_dir: "desc",
+          limit: "50",
+        }),
       ]);
-      setPlans(p.data ?? []);
-      setLogs(l.data ?? []);
-      const logIds = (l.data ?? []).map((x: any) => x.id);
-      const allSets = logIds.length ? await api.listAll('workout_sets', { filter_in_workout_log_id: logIds.join(',') }) : { data: [] };
-      setSets(allSets.data ?? []);
-    } catch (e: any) {
-      setErr(e.message);
+      const ids = (l.data || []).map((x: any) => x.id);
+      const s = ids.length
+        ? await api.listAll("workout_sets", {
+            filter_in_workout_log_id: ids.join(","),
+          })
+        : { data: [] };
+      setPlans(p.data || []);
+      setLogs(l.data || []);
+      setSets(s.data || []);
+      setError("");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  usePageLoad("/workout", load);
   const addPlan = async () => {
-    if (!pName.trim()) return;
+    if (busy || !name.trim()) return;
     setBusy(true);
-    setErr('');
+    setFormError("");
     try {
-      await api.create('workout_plans', { name: pName.trim(), split_type: pSplit, day_of_week: [Number(pDay)] });
-      setPName('');
-      load();
-    } catch (e: any) {
-      setErr(e.message);
+      await api.create("workout_plans", {
+        name: name.trim(),
+        split_type: split,
+        day_of_week: [Number(day)],
+      });
+      setName("");
+      panel.close();
+      feedback.notify("Program latihan disimpan");
+      changed();
+    } catch (e) {
+      setFormError(messageOf(e));
     } finally {
       setBusy(false);
     }
   };
-
-  const removePlan = async (id: string) => {
-    await api.remove('workout_plans', id);
-    load();
+  const openSession = (p: any) => {
+    if (selected?.id !== p.id) {
+      setExercise("");
+      setReps("10");
+      setWeight("0");
+      setLogId(null);
+    }
+    setSelected(p);
+    setFormError("");
   };
-
-  const logWorkout = async (plan: any) => {
+  const [sessionOpen, setSessionOpen] = useState(false);
+  const saveWorkout = async () => {
+    if (busy || !selected) return;
     setBusy(true);
-    setErr('');
+    setFormError("");
     try {
-      if (exName.trim() && (!Number.isInteger(Number(exReps)) || Number(exReps) <= 0 || !Number.isFinite(Number(exWeight)) || Number(exWeight) < 0)) {
-        throw new Error('Isi repetisi positif dan beban minimal 0 kg');
-      }
-      const log = await api.create('workout_logs', { plan_id: plan.id, date: todayStr() });
-      if (exName.trim()) {
-        await api.create('workout_sets', {
-          workout_log_id: log.data.id,
-          exercise_name: exName.trim(),
-          set_number: 1,
-          reps: Number(exReps) || 10,
-          weight: Number(exWeight) || 0,
+      if (
+        exercise.trim() &&
+        (!Number.isInteger(Number(reps)) ||
+          Number(reps) <= 0 ||
+          !Number.isFinite(Number(weight)) ||
+          Number(weight) < 0)
+      )
+        throw new Error("Isi repetisi positif dan beban minimal 0 kg.");
+      let id = logId;
+      if (!id) {
+        const log = await api.create("workout_logs", {
+          plan_id: selected.id,
+          date: todayStr(),
         });
+        id = log.data.id;
+        setLogId(id);
       }
-      setExName('');
-      load();
-    } catch (e: any) {
-      setErr(e.message);
+      if (exercise.trim())
+        await api.create("workout_sets", {
+          workout_log_id: id,
+          exercise_name: exercise.trim(),
+          set_number: 1,
+          reps: Number(reps),
+          weight: Number(weight),
+        });
+      setSessionOpen(false);
+      setSelected(null);
+      setLogId(null);
+      setExercise("");
+      feedback.notify("Latihan dicatat");
+      changed();
+    } catch (e) {
+      setFormError(messageOf(e));
     } finally {
       setBusy(false);
     }
   };
-
-  const setsByLog = sets.reduce((acc: Record<string, any[]>, s) => {
-    (acc[s.workout_log_id] = acc[s.workout_log_id] ?? []).push(s);
-    return acc;
-  }, {});
-
+  const remove = async (p: any) => {
+    if (busy || !(await feedback.confirm("Hapus program ini?"))) return;
+    setBusy(true);
+    try {
+      await api.remove("workout_plans", p.id);
+      changed();
+      feedback.notify("Program dihapus");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <div>
-      <p className="page-sub">Rencana latihan & riwayat workout</p>
-      {err && <div className="error-box">{err}</div>}
-
-      <div className="card">
-        <h3>➕ Rencana Latihan</h3>
-        <div className="form-grid workout-form">
-          <input className="grow" placeholder="Nama plan (mis. Push Day A)" value={pName} onChange={(e) => setPName(e.target.value)} />
-          <select value={pSplit} onChange={(e) => setPSplit(e.target.value)}>
-            {['push', 'pull', 'legs', 'upper', 'lower', 'full_body', 'custom'].map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select value={pDay} onChange={(e) => setPDay(e.target.value)}>
-            {['1', '2', '3', '4', '5', '6', '0'].map((d) => (
-              <option key={d} value={d}>
-                {DAYS[Number(d)]}
-              </option>
-            ))}
-          </select>
-          <button className="btn" onClick={addPlan} disabled={busy}>
-            Simpan
-          </button>
+    <>
+      <div className="screen-scroll">
+        <div className="content-width">
+          <Segments
+            label="Bagian workout"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: "plans", label: "Program" },
+              { value: "history", label: "Riwayat" },
+            ]}
+          />
+          <ErrorState message={error} onRetry={() => void load()} />
+          {loading ? (
+            <LoadingState />
+          ) : tab === "plans" ? (
+            plans.length ? (
+              <div className="list">
+                {plans.map((p) => (
+                  <div className="list-row" key={p.id}>
+                    <button
+                      type="button"
+                      className="workout-link"
+                      onClick={() => {
+                        openSession(p);
+                        setSessionOpen(true);
+                      }}
+                    >
+                      <span className="list-icon">
+                        <Icon name="fitness_center" />
+                      </span>
+                      <span className="copy">
+                        <strong>{p.name}</strong>
+                        <p>
+                          {SPLITS[p.split_type] || p.split_type} ·{" "}
+                          {(p.day_of_week || [])
+                            .map((d: number) => DAYS[d])
+                            .join(", ")}
+                        </p>
+                        <p className="action-copy">Catat latihan</p>
+                      </span>
+                    </button>
+                    <IconButton
+                      icon="delete"
+                      label={`Hapus ${p.name}`}
+                      disabled={busy}
+                      onClick={() => void remove(p)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              !error && (
+                <EmptyState
+                  title="Temukan ritme latihanmu"
+                  icon="fitness_center"
+                >
+                  Buat program latihan pertamamu.
+                </EmptyState>
+              )
+            )
+          ) : logs.length ? (
+            <div className="stack">
+              {logs.map((l) => (
+                <section className="card" key={l.id}>
+                  <p className="meta">
+                    {new Date(
+                      `${localDate(l.date)}T12:00:00`,
+                    ).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                  <h2 style={{ marginTop: 4 }}>
+                    {plans.find((p) => p.id === l.plan_id)?.name || "Latihan"}
+                  </h2>
+                  {sets
+                    .filter((s) => s.workout_log_id === l.id)
+                    .map((s) => (
+                      <div className="list-row" key={s.id}>
+                        <div className="copy">
+                          <strong>{s.exercise_name}</strong>
+                          <p>
+                            {s.reps} repetisi · {s.weight} kg
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                </section>
+              ))}
+            </div>
+          ) : (
+            !error && (
+              <EmptyState
+                title="Riwayatmu dimulai dari sini"
+                icon="fitness_center"
+              >
+                Catat latihan dari program yang kamu pilih.
+              </EmptyState>
+            )
+          )}
         </div>
       </div>
-
-      <div className="grid cols-2 section">
-        {plans.length === 0 && <p className="empty">Belum ada rencana latihan.</p>}
-        {plans.map((p) => (
-          <div key={p.id} className="card">
-            <div className="row between plan-header">
-              <h3 style={{ marginBottom: 0 }}>{p.name}</h3>
-              <span className="meta">{p.split_type}</span>
-            </div>
-            <p className="meta" style={{ margin: '6px 0 12px' }}>
-              {(p.day_of_week ?? []).map((day: number) => DAYS[day]).join(', ')}
-            </p>
-            <div className="exercise-fields">
+      {tab === "plans" && (
+        <Fab
+          label="Program baru"
+          onClick={() => {
+            setFormError("");
+            nav("/workout?new=1");
+          }}
+        />
+      )}
+      <Modal
+        full
+        open={panel.open}
+        title="Program latihan baru"
+        onClose={panel.close}
+        busy={busy}
+      >
+        <Form onSubmit={addPlan}>
+          <Field label="Nama program">
+            <input
+              autoFocus
+              required
+              placeholder="Contoh: Push Day A"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+          <Field label="Jenis latihan">
+            <select value={split} onChange={(e) => setSplit(e.target.value)}>
+              {Object.entries(SPLITS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Hari latihan">
+            <select value={day} onChange={(e) => setDay(e.target.value)}>
+              {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                <option key={d} value={d}>
+                  {DAYS[d]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <ErrorState message={formError} />
+          <Button type="submit" disabled={busy}>
+            {busy ? "Menyimpan…" : "Simpan program"}
+          </Button>
+        </Form>
+      </Modal>
+      <Modal
+        full
+        open={sessionOpen}
+        title={selected?.name || "Catat latihan"}
+        onClose={() => setSessionOpen(false)}
+        busy={busy}
+      >
+        <Form onSubmit={saveWorkout}>
+          <p className="muted">
+            Catat sesi hari ini. Isian hanya berlaku untuk program ini.
+          </p>
+          <Field label="Nama latihan (opsional)">
+            <input
+              autoFocus
+              placeholder="Contoh: Bench Press"
+              value={exercise}
+              onChange={(e) => setExercise(e.target.value)}
+            />
+          </Field>
+          <div className="field-pair">
+            <Field label="Repetisi">
               <input
-                className="grow"
-                placeholder="Latihan (mis. Bench Press)"
-                value={exName}
-                onChange={(e) => setExName(e.target.value)}
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                required
+                value={reps}
+                onChange={(e) => setReps(e.target.value)}
               />
-              <input aria-label="Jumlah repetisi" type="number" value={exReps} onChange={(e) => setExReps(e.target.value)} />
-              <input aria-label="Beban kilogram" type="number" value={exWeight} onChange={(e) => setExWeight(e.target.value)} />
-            </div>
-            <button className="btn full" onClick={() => logWorkout(p)} disabled={busy}>
-              ✅ Log Workout Sekarang
-            </button>
-            <button className="btn danger full" style={{ marginTop: 6 }} onClick={() => removePlan(p.id)}>
-              Hapus plan
-            </button>
+            </Field>
+            <Field label="Beban (kg)">
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="any"
+                required
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+              />
+            </Field>
           </div>
-        ))}
-      </div>
-
-      <div className="section card">
-        <h3>📜 Riwayat Workout</h3>
-        {logs.length === 0 && <p className="empty">Belum ada riwayat.</p>}
-        {logs.map((l) => {
-          const plan = plans.find((p) => p.id === l.plan_id);
-          const ls = setsByLog[l.id] ?? [];
-          return (
-            <div key={l.id} className="item" style={{ alignItems: 'flex-start' }}>
-              <div className="title">
-                <div>{plan?.name ?? 'Workout'}</div>
-                <div className="meta">
-                  {localDate(l.date)}
-                  {ls.length > 0 && ` — ${ls.length} set`}
-                </div>
-                {ls.length > 0 && (
-                  <div className="meta" style={{ marginTop: 4 }}>
-                    {ls.map((s) => `${s.exercise_name} ${s.reps}x@${s.weight ?? 0}kg`).join(' · ')}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+          <ErrorState message={formError} />
+          <Button type="submit" disabled={busy}>
+            {busy ? "Menyimpan…" : "Simpan latihan"}
+          </Button>
+          <p className="meta">
+            Isian tetap tersedia jika sesi ditutup atau penyimpanan gagal.
+          </p>
+        </Form>
+      </Modal>
+    </>
   );
 }

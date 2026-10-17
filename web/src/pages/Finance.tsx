@@ -1,325 +1,454 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api, todayStr, rupiah, monthRange, localDate } from '../api';
-
-const CATEGORIES = [
-  'food',
-  'transport',
-  'shopping',
-  'health',
-  'entertainment',
-  'education',
-  'utilities',
-  'gym',
-  'investment',
-  'salary',
-  'freelance',
-  'other',
-];
-
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { api, addDays, localDate, monthRange, rupiah, todayStr } from "../api";
+import {
+  Button,
+  changed,
+  EmptyState,
+  ErrorState,
+  Fab,
+  Field,
+  Form,
+  Icon,
+  IconButton,
+  LoadingState,
+  messageOf,
+  Modal,
+  Section,
+  Segments,
+  useCreatePanel,
+  useFeedback,
+  usePageLoad,
+} from "../ui";
+const CATEGORIES: Record<string, string> = {
+  food: "Makanan",
+  transport: "Transportasi",
+  shopping: "Belanja",
+  health: "Kesehatan",
+  entertainment: "Hiburan",
+  education: "Pendidikan",
+  utilities: "Tagihan",
+  gym: "Olahraga",
+  investment: "Investasi",
+  salary: "Gaji",
+  freelance: "Pekerjaan lepas",
+  other: "Lainnya",
+};
 export default function Finance() {
+  const nav = useNavigate();
+  const panel = useCreatePanel("/finance");
+  const feedback = useFeedback();
   const [month, setMonth] = useState(todayStr().slice(0, 7));
+  const [tab, setTab] = useState<"transactions" | "budgets">("transactions");
   const [txs, setTxs] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
-  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState('expense');
-  const [category, setCategory] = useState('food');
-  const [note, setNote] = useState('');
+  const [amount, setAmount] = useState("");
+  const [type, setType] = useState("expense");
+  const [category, setCategory] = useState("food");
+  const [note, setNote] = useState("");
   const [date, setDate] = useState(todayStr());
-
-  const [bCategory, setBCategory] = useState('food');
-  const [bLimit, setBLimit] = useState('');
-
+  const [budgetCategory, setBudgetCategory] = useState("food");
+  const [limit, setLimit] = useState("");
+  const routeParams = new URLSearchParams(useLocation().search);
+  const presetType = routeParams.get("type");
+  const formKind =
+    routeParams.get("kind") === "budget" ? "budget" : "transaction";
+  useEffect(() => {
+    if (panel.open && presetType === "expense") setType("expense");
+  }, [panel.open, presetType]);
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [tx, b] = await Promise.all([
-        api.listAll('transactions', monthRange(month)),
-        api.list('budgets', { filter_eq_month: month }),
+        api.listAll("transactions", monthRange(month)),
+        api.list("budgets", { filter_eq_month: month }),
       ]);
-      setTxs(tx.data ?? []);
-      setBudgets(b.data ?? []);
-    } catch (e: any) {
-      setErr(e.message);
+      setTxs(tx.data || []);
+      setBudgets(b.data || []);
+      setError("");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setLoading(false);
     }
   }, [month]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  usePageLoad("/finance", load);
   const monthTx = useMemo(
     () =>
       txs
-        .filter((t) => localDate(t.occurred_at).slice(0, 7) === month)
-        .sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1)),
-    [txs, month]
+        .filter((t) => localDate(t.occurred_at).startsWith(month))
+        .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)),
+    [txs, month],
   );
-  const income = monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-  const expense = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-
-  const spentByCategory = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const t of monthTx) {
-      if (t.type === 'expense') map[t.category] = (map[t.category] ?? 0) + Number(t.amount);
-    }
-    return map;
-  }, [monthTx]);
-
-  const addTx = async () => {
-    const amt = Number(amount);
-    if (!amt || amt <= 0) return setErr('Jumlah harus angka positif');
+  const income = monthTx
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const expense = monthTx
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const groups = monthTx.reduce((r: Record<string, any[]>, t) => {
+    const key = localDate(t.occurred_at);
+    (r[key] ||= []).push(t);
+    return r;
+  }, {});
+  const spent = (cat: string) =>
+    monthTx
+      .filter((t) => t.type === "expense" && t.category === cat)
+      .reduce((s, t) => s + Number(t.amount), 0);
+  const lastDay =
+    month === todayStr().slice(0, 7)
+      ? todayStr()
+      : todayStr(
+          new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0),
+        );
+  const chart = Array.from({ length: 7 }, (_, i) => {
+    const day = addDays(lastDay, i - 6);
+    const rows = monthTx.filter((t) => localDate(t.occurred_at) === day);
+    return {
+      day,
+      income: rows
+        .filter((t) => t.type === "income")
+        .reduce((s, t) => s + Number(t.amount), 0),
+      expense: rows
+        .filter((t) => t.type === "expense")
+        .reduce((s, t) => s + Number(t.amount), 0),
+    };
+  });
+  const max = Math.max(1, ...chart.flatMap((d) => [d.income, d.expense]));
+  const openNew = () => {
+    setFormError("");
+    nav(tab === "budgets" ? "/finance?new=1&kind=budget" : "/finance?new=1");
+  };
+  const save = async () => {
+    if (busy) return;
     setBusy(true);
-    setErr('');
+    setFormError("");
     try {
-      await api.create('transactions', {
-        amount: amt,
-        type,
-        category,
-        note: note || null,
-        occurred_at: new Date(`${date}T12:00:00`).toISOString(),
-      });
-      setAmount('');
-      setNote('');
-      load();
-    } catch (e: any) {
-      setErr(e.message);
+      const value = Number(formKind === "budget" ? limit : amount);
+      if (!Number.isFinite(value) || value <= 0)
+        throw new Error("Masukkan jumlah lebih dari nol.");
+      if (formKind === "budget") {
+        await api.upsert(
+          "budgets",
+          { category: budgetCategory, monthly_limit: value, month },
+          "user_id,category,month",
+        );
+        setLimit("");
+      } else {
+        await api.create("transactions", {
+          amount: value,
+          type,
+          category,
+          note: note.trim() || null,
+          occurred_at: new Date(`${date}T12:00:00`).toISOString(),
+        });
+        setAmount("");
+        setNote("");
+      }
+      panel.close();
+      feedback.notify(
+        formKind === "budget" ? "Anggaran disimpan" : "Transaksi disimpan",
+      );
+      changed();
+    } catch (e) {
+      setFormError(messageOf(e));
     } finally {
       setBusy(false);
     }
   };
-
-  const addBudget = async () => {
-    const lim = Number(bLimit);
-    if (!lim || lim <= 0) return setErr('Limit harus angka positif');
+  const remove = async (t: any) => {
+    if (busy || !(await feedback.confirm("Hapus transaksi ini?"))) return;
     setBusy(true);
-    setErr('');
     try {
-      await api.upsert('budgets', { category: bCategory, monthly_limit: lim, month }, 'user_id,category,month');
-      setBLimit('');
-      load();
-    } catch (e: any) {
-      setErr(e.message);
+      await api.remove("transactions", t.id);
+      changed();
+      feedback.notify("Transaksi dihapus");
+    } catch (e) {
+      setError(messageOf(e));
     } finally {
       setBusy(false);
     }
   };
-
-  const removeTx = async (id: string) => {
-    await api.remove('transactions', id);
-    load();
-  };
-
+  // A quick expense link always opens a transaction, including after using Anggaran.
+  const transactionPanel = panel.open && formKind === "transaction";
+  const options = Object.entries(CATEGORIES).map(([value, label]) => (
+    <option key={value} value={value}>
+      {label}
+    </option>
+  ));
   return (
-    <FinanceView
-      month={month}
-      setMonth={setMonth}
-      income={income}
-      expense={expense}
-      txs={monthTx}
-      budgets={budgets}
-      spentByCategory={spentByCategory}
-      amount={amount}
-      setAmount={setAmount}
-      type={type}
-      setType={setType}
-      category={category}
-      setCategory={setCategory}
-      note={note}
-      setNote={setNote}
-      date={date}
-      setDate={setDate}
-      bCategory={bCategory}
-      setBCategory={setBCategory}
-      bLimit={bLimit}
-      setBLimit={setBLimit}
-      busy={busy}
-      err={err}
-      onAddTx={addTx}
-      onAddBudget={addBudget}
-      onRemoveTx={removeTx}
-      categories={CATEGORIES}
-    />
-  );
-}
-
-function FinanceView(props: any) {
-  const {
-    month,
-    setMonth,
-    income,
-    expense,
-    txs,
-    budgets,
-    spentByCategory,
-    amount,
-    setAmount,
-    type,
-    setType,
-    category,
-    setCategory,
-    note,
-    setNote,
-    date,
-    setDate,
-    bCategory,
-    setBCategory,
-    bLimit,
-    setBLimit,
-    busy,
-    err,
-    onAddTx,
-    onAddBudget,
-    onRemoveTx,
-    categories,
-  } = props;
-
-const now = new Date();
-const days = Array.from({ length: 7 }, (_x, i) => {
-const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
-const key = todayStr(d);
-const dayTxs = txs.filter((t: any) => localDate(t.occurred_at) === key);
-return {
-label: d.toLocaleDateString('id-ID', { weekday: 'short' }),
-inc: dayTxs.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + Number(t.amount), 0),
-exp: dayTxs.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) => s + Number(t.amount), 0)
-};
-});
-const maxDay = Math.max(1, ...days.map((d: any) => Math.max(d.inc, d.exp)));
-  return (
-    <div className="finance-page">
-      <p className="page-sub">Catat transaksi & pantau budget bulanan</p>
-      {err && <div className="error-box">{err}</div>}
-
-      <div className="row wrap" style={{ marginBottom: 16 }}>
-        <label style={{ color: 'var(--muted)' }}>Bulan:</label>
-        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-      </div>
-
-      <div className="grid summary-grid">
-        <div className="card">
-          <h3>Pemasukan</h3>
-          <div className="stat-value green">{rupiah(income)}</div>
-        </div>
-        <div className="card">
-          <h3>Pengeluaran</h3>
-          <div className="stat-value red">{rupiah(expense)}</div>
-        </div>
-      </div>
-
-      <div className="card section cashflow-card">
-        <h3>Cashflow 7 Hari Terakhir</h3>
-        <div className="chart">
-          {days.map((d: any) => (
-            <div key={d.label} className="bar">
-              <div className="fill expense" style={{ height: `${Math.round((d.exp / maxDay) * 100)}%` }} />
-              <div className="fill income" style={{ height: `${Math.round((d.inc / maxDay) * 100)}%` }} />
-              <div className="lbl">{d.label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="chart-legend">
-          <span className="budget-chip expense-key">■ Pengeluaran</span>
-          <span className="budget-chip income-key">■ Pemasukan</span>
-        </div>
-      </div>
-
-      <div className="grid cols-2 section">
-        <div className="card">
-          <h3>➕ Transaksi Baru</h3>
-          <div className="form-grid transaction-form">
+    <>
+      <div className="screen-scroll">
+        <div className="content-width">
+          <Field label="Periode">
             <input
-              className="amount-field"
-              type="number"
-              placeholder="Jumlah (Rp)"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              type="month"
+              required
+              value={month}
+              onChange={(e) => {
+                if (e.target.value) setMonth(e.target.value);
+              }}
             />
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="expense">Pengeluaran</option>
-              <option value="income">Pemasukan</option>
-            </select>
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
-              {categories.map((c: string) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <input className="note-field" placeholder="Catatan (opsional)" value={note} onChange={(e) => setNote(e.target.value)} />
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            <button className="btn submit-field" onClick={onAddTx} disabled={busy}>
-              Simpan
-            </button>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>🎯 Budget {month}</h3>
-          <div className="form-grid budget-form">
-            <select value={bCategory} onChange={(e) => setBCategory(e.target.value)}>
-              {categories.map((c: string) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              placeholder="Limit (Rp)"
-              value={bLimit}
-              onChange={(e) => setBLimit(e.target.value)}
-            />
-            <button className="btn" onClick={onAddBudget} disabled={busy}>
-              Set
-            </button>
-          </div>
-          {budgets.length === 0 && <p className="empty">Belum ada budget untuk bulan ini.</p>}
-          {budgets.map((b: any) => {
-            const spent = spentByCategory[b.category] ?? 0;
-            const pct = Math.min(100, Math.round((spent / Number(b.monthly_limit)) * 100));
-            const over = spent > Number(b.monthly_limit);
-            return (
-              <div key={b.id} style={{ marginBottom: 12 }}>
-                <div className="row between budget-row">
-                  <span className="budget-copy">
-                    {b.category} — {rupiah(spent)} / {rupiah(Number(b.monthly_limit))}
-                  </span>
-                  <span style={{ color: over ? 'var(--red)' : 'var(--muted)' }}>{pct}%</span>
-                </div>
-                <div className="progress">
-                  <div className={over ? 'over' : ''} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="section card">
-        <h3>🧾 Transaksi {month}</h3>
-        {txs.length === 0 && <p className="empty">Belum ada transaksi bulan ini.</p>}
-        {txs.map((t: any) => (
-          <div key={t.id} className="item transaction-row">
-            <span className="dot" style={{ background: t.type === 'income' ? 'var(--green)' : 'var(--red)' }} />
-            <div className="title">
+          </Field>
+          <ErrorState message={error} onRetry={() => void load()} />
+          <section className="section card tonal-card">
+            <p className="eyebrow">Sisa bulan ini</p>
+            <p className="number">{rupiah(income - expense)}</p>
+            <div className="summary-grid">
               <div>
-                {t.type === 'income' ? '+' : '−'} {rupiah(Number(t.amount))}{' '}
-                <span className="meta">
-                  ({t.category}
-                  {t.note ? ` — ${t.note}` : ''})
-                </span>
+                <p className="meta">Pemasukan</p>
+                <p className="number green">{rupiah(income)}</p>
               </div>
-              <div className="meta">{(t.occurred_at ?? '').slice(0, 10)}</div>
+              <div>
+                <p className="meta">Pengeluaran</p>
+                <p className="number red">{rupiah(expense)}</p>
+              </div>
             </div>
-            <button className="btn danger" onClick={() => onRemoveTx(t.id)}>
-              ✕
-            </button>
+            <details className="chart-disclosure">
+              <summary>Arus kas 7 hari</summary>
+              <div
+                className="chart"
+                role="img"
+                aria-label="Grafik pemasukan dan pengeluaran tujuh hari terakhir periode ini"
+              >
+                {chart.map((d) => (
+                  <div
+                    className="chart-day"
+                    key={d.day}
+                    title={`${d.day}: pemasukan ${rupiah(d.income)}, pengeluaran ${rupiah(d.expense)}`}
+                  >
+                    <div
+                      className="chart-bar income"
+                      style={{ height: `${(d.income / max) * 100}%` }}
+                    />
+                    <div
+                      className="chart-bar"
+                      style={{ height: `${(d.expense / max) * 100}%` }}
+                    />
+                    <small>{new Date(`${d.day}T12:00:00`).getDate()}</small>
+                  </div>
+                ))}
+              </div>
+              <div className="chart-legend">
+                <span className="green">■ Pemasukan</span>
+                <span>■ Pengeluaran</span>
+              </div>
+              <table className="sr-only">
+                <caption>Arus kas harian</caption>
+                <tbody>
+                  {chart.map((d) => (
+                    <tr key={d.day}>
+                      <th>{d.day}</th>
+                      <td>{rupiah(d.income)}</td>
+                      <td>{rupiah(d.expense)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          </section>
+          <div className="section">
+            <Segments
+              label="Bagian keuangan"
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: "transactions", label: "Transaksi" },
+                { value: "budgets", label: "Anggaran" },
+              ]}
+            />
           </div>
-        ))}
+          {loading ? (
+            <LoadingState />
+          ) : tab === "transactions" ? (
+            monthTx.length ? (
+              Object.entries(groups).map(([day, rows]) => (
+                <section key={day}>
+                  <h2 className="date-label">
+                    {new Date(`${day}T12:00:00`).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </h2>
+                  <div className="list">
+                    {rows.map((t) => (
+                      <div className="list-row" key={t.id}>
+                        <span className="list-icon">
+                          <Icon
+                            name={
+                              t.type === "income"
+                                ? "trending_up"
+                                : "account_balance_wallet"
+                            }
+                          />
+                        </span>
+                        <div className="copy">
+                          <strong>
+                            {CATEGORIES[t.category] || t.category}
+                          </strong>
+                          {t.note && <p>{t.note}</p>}
+                          <p className={t.type === "income" ? "green" : "red"}>
+                            {t.type === "income" ? "+" : "−"}{" "}
+                            {rupiah(Number(t.amount))}
+                          </p>
+                        </div>
+                        <IconButton
+                          icon="delete"
+                          label={`Hapus transaksi ${t.note || CATEGORIES[t.category] || t.category}`}
+                          disabled={busy}
+                          onClick={() => void remove(t)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))
+            ) : (
+              !error && (
+                <EmptyState
+                  title="Belum ada transaksi"
+                  icon="account_balance_wallet"
+                >
+                  Catat pemasukan atau pengeluaran pertamamu.
+                </EmptyState>
+              )
+            )
+          ) : budgets.length ? (
+            <div className="stack">
+              {budgets.map((b) => {
+                const used = spent(b.category);
+                const percent = Math.round(
+                  (used / Number(b.monthly_limit)) * 100,
+                );
+                return (
+                  <div className="card" key={b.id}>
+                    <div className="row between wrap">
+                      <h2>{CATEGORIES[b.category] || b.category}</h2>
+                      <span className={percent > 100 ? "red" : "meta"}>
+                        {percent}% terpakai
+                      </span>
+                    </div>
+                    <p className="meta" style={{ marginTop: 8 }}>
+                      {rupiah(used)} dari {rupiah(Number(b.monthly_limit))}
+                    </p>
+                    <div
+                      className="progress"
+                      role="progressbar"
+                      aria-label={`Anggaran ${CATEGORIES[b.category] || b.category}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.min(100, percent)}
+                    >
+                      <div
+                        className={percent > 100 ? "over" : ""}
+                        style={{ width: `${Math.min(100, percent)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            !error && (
+              <EmptyState title="Beri arah untuk pengeluaranmu" icon="savings">
+                Tambahkan anggaran untuk bulan ini.
+              </EmptyState>
+            )
+          )}
+        </div>
       </div>
-    </div>
+      <Fab
+        label={tab === "budgets" ? "Anggaran baru" : "Transaksi baru"}
+        onClick={openNew}
+      />
+      <Modal
+        open={panel.open}
+        title={transactionPanel ? "Transaksi baru" : "Anggaran bulanan"}
+        onClose={panel.close}
+        busy={busy}
+      >
+        <Form onSubmit={save}>
+          {formKind === "transaction" ? (
+            <>
+              <Segments
+                label="Jenis transaksi"
+                value={type}
+                onChange={setType}
+                options={[
+                  { value: "expense", label: "Pengeluaran" },
+                  { value: "income", label: "Pemasukan" },
+                ]}
+              />
+              <Field label="Jumlah (Rp)">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  required
+                  autoFocus
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </Field>
+              <Field label="Kategori">
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  {options}
+                </select>
+              </Field>
+              <Field label="Tanggal">
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </Field>
+              <Field label="Catatan (opsional)">
+                <input value={note} onChange={(e) => setNote(e.target.value)} />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="Kategori anggaran">
+                <select
+                  value={budgetCategory}
+                  onChange={(e) => setBudgetCategory(e.target.value)}
+                >
+                  {options}
+                </select>
+              </Field>
+              <Field label="Batas pengeluaran (Rp)">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  required
+                  min="0"
+                  step="any"
+                  autoFocus
+                  value={limit}
+                  onChange={(e) => setLimit(e.target.value)}
+                />
+              </Field>
+              <p className="meta">
+                Untuk periode {month}. Anggaran kategori yang sama akan
+                diperbarui.
+              </p>
+            </>
+          )}
+          <ErrorState message={formError} />
+          <Button type="submit" disabled={busy}>
+            {busy ? "Menyimpan…" : "Simpan"}
+          </Button>
+        </Form>
+      </Modal>
+    </>
   );
 }
-

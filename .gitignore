@@ -57,5 +57,7 @@ dist/
 _srvbuild/
 _srv.*
 _token.txt
+web/test-results/
+web/playwright-report/
 .env*
 !web/.env.android

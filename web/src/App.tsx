@@ -1,129 +1,255 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Routes, Route, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { getToken, setToken, loadUser, saveUser } from './api';
-import { api } from './api';
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-import CalendarPage from './pages/Calendar';
-import Finance from './pages/Finance';
-import Workout from './pages/Workout';
-import Habits from './pages/Habits';
-import Notes from './pages/Notes';
-import AICopilot from './pages/AICopilot';
-import Profile from './pages/Profile';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Navigate, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Capacitor, SystemBars, SystemBarsStyle } from "@capacitor/core";
+import { App as NativeApp } from "@capacitor/app";
+import { Keyboard } from "@capacitor/keyboard";
+import { api, getToken, loadUser, saveUser, setToken } from "./api";
+import {
+  closeTopOverlay,
+  FeedbackProvider,
+  Icon,
+  IconButton,
+  LoadingState,
+  type IconName,
+} from "./ui";
+import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import Calendar from "./pages/Calendar";
+import Finance from "./pages/Finance";
+import AICopilot from "./pages/AICopilot";
+import Profile from "./pages/Profile";
+import Workout from "./pages/Workout";
+import Habits from "./pages/Habits";
+import Notes from "./pages/Notes";
+import Space from "./pages/Space";
 
-const NAV = [
-  { to: '/', label: 'Home', icon: '🏠', end: true },
-  { to: '/calendar', label: 'Kalender', icon: '📅', end: false },
-   { to: '/ai', label: 'AI', icon: '✨', end: false },
-    { to: '/finance', label: 'Keuangan', icon: '💰', end: false },
-     { to: '/profile', label: 'Profil', icon: '👤', end: false },
-];
-
-const QUICK_ACTIONS = [
-  { label: 'Tugas Baru', icon: '✅', to: '/?new=task' },
-  { label: 'Acara Baru', icon: '📅', to: '/calendar?new=1' },
-   { label: 'Pengeluaran', icon: '💰', to: '/finance?new=1' },
-    { label: 'Catatan Baru', icon: '📝', to: '/notes?new=1' },
-];
-
-function initials(u: any): string {
-  const name = u?.display_name || u?.email || 'Atlas';
-  const parts = String(name).trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? 'A';
-const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
- return (first + last).toUpperCase() || 'A';
-}
+type ScreenConfig = {
+  title: string;
+  parent?: string;
+  icon?: IconName;
+  label?: string;
+};
+const SCREENS: Record<string, ScreenConfig> = {
+  "/": { title: "Hari ini", icon: "home", label: "Beranda" },
+  "/calendar": { title: "Kalender", icon: "calendar_month", label: "Kalender" },
+  "/ai": { title: "Atlas AI", icon: "auto_awesome", label: "AI" },
+  "/finance": {
+    title: "Keuangan",
+    icon: "account_balance_wallet",
+    label: "Keuangan",
+  },
+  "/space": { title: "Ruang Saya", icon: "grid_view", label: "Ruang Saya" },
+  "/profile": { title: "Profil", parent: "/space" },
+  "/workout": { title: "Workout", parent: "/space" },
+  "/habits": { title: "Kebiasaan", parent: "/space" },
+  "/notes": { title: "Catatan", parent: "/space" },
+};
+const TABS = Object.entries(SCREENS).filter(([, s]) => s.label);
 
 export default function App() {
   const nav = useNavigate();
   const loc = useLocation();
- const [user, setUser] = useState<any>(loadUser());
- const [loading, setLoading] = useState<boolean>(!!getToken());
- const [qaOpen, setQaOpen] = useState(false);
- const contentRef = useRef<HTMLElement>(null);
-
- useEffect(() => {
-   if (!getToken()) { setLoading(false); return; }
-   api.me().then((r: any) => { setUser(r.user); saveUser(r.user); }).catch(() => { setToken(null); saveUser(null); setUser(null); }).finally(() => setLoading(false));
- }, []);
-
- useLayoutEffect(() => {
-   if (contentRef.current) contentRef.current.scrollTop = 0;
- }, [loc.pathname, loc.search]);
-
- const logout = () => { setToken(null); saveUser(null); setUser(null); nav('/login'); };
-
- if (loading) return <div className="app-frame"><div className="center-loading">Memuat…</div></div>;
-
- if (!getToken()) {
-   return <div className="app-frame"><Auth onAuthed={setUser} /></div>;
- }
-
- const titles: Record<string, string> = {
-   '/': user?.display_name ? `Halo, ${user.display_name}` : 'Halo',
-   '/calendar': 'Kalender',
-    '/ai': 'Atlas AI',
-     '/finance': 'Keuangan',
-      '/profile': 'Profil',
-      '/workout': 'Workout',
-      '/habits': 'Habit Tracker',
-      '/notes': 'Second Brain',
- };
- const title = titles[loc.pathname] ?? 'Atlas';
- const todayLabel = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
- const runAction = (to: string) => { setQaOpen(false); nav(to); };
-
- return (
-   <div className="app-frame">
-     <header className="top-bar">
-       <div>
-         <h1>{title}</h1>
-         <div className="sub">{todayLabel}</div>
-       </div>
-       <div className="actions">
-         <button className="avatar" onClick={() => nav('/profile')}>{initials(user)}</button>
-       </div>
-     </header>
-     <main className="app-content" ref={contentRef}>
-       <div className="page" key={loc.pathname}>
-         <Routes>
-           <Route path="/" element={<Dashboard user={user} />} />
-           <Route path="/calendar" element={<CalendarPage />} />
-           <Route path="/ai" element={<AICopilot />} />
-           <Route path="/finance" element={<Finance />} />
-           <Route path="/profile" element={<Profile user={user} onLogout={logout} />} />
-           <Route path="/workout" element={<Workout />} />
-           <Route path="/habits" element={<Habits />} />
-           <Route path="/notes" element={<Notes />} />
-           <Route path="*" element={<Navigate to="/" replace />} />
-         </Routes>
-       </div>
-     </main>
-     <button className={'fab' + (qaOpen ? ' open' : '')} onClick={() => setQaOpen(o => !o)} aria-label="Tambah cepat" aria-expanded={qaOpen}>+</button>
-     <nav className="bottom-nav">
-       {NAV.map(item => (
-         <NavLink key={item.to} to={item.to} end={item.end} className="nav-item">
-           <span className="nav-icon" aria-hidden="true">{item.icon}</span>
-           <span className="nav-label">{item.label}</span>
-         </NavLink>
-       ))}
-     </nav>
-     {qaOpen && (
-       <div className="sheet-overlay" onClick={() => setQaOpen(false)}>
-         <div className="sheet" role="dialog" aria-modal="true" aria-label="Tambah Cepat" onClick={(e) => e.stopPropagation()}>
-           <div className="sheet-handle" />
-           <div className="sheet-title">Tambah Cepat</div>
-           <div className="qa-grid">
-             {QUICK_ACTIONS.map(a => (
-               <button key={a.label} className="qa-item" onClick={() => runAction(a.to)}>
-                 <span className="qa-icon">{a.icon}</span>{a.label}
-               </button>
-             ))}
-           </div>
-         </div>
-       </div>
-     )}
-   </div>
- );
+  const [user, setUser] = useState<any>(loadUser());
+  const [loading, setLoading] = useState(!!getToken());
+  const [visited, setVisited] = useState<Set<string>>(
+    () => new Set([loc.pathname]),
+  );
+  const [keyboard, setKeyboard] = useState(false);
+  const profileOrigin = useRef("/space");
+  const session = !!getToken();
+  useEffect(() => {
+    if (!session) {
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    api
+      .me()
+      .then((r) => {
+        if (active) {
+          setUser(r.user);
+          saveUser(r.user);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setToken(null);
+          saveUser(null);
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session]);
+  useEffect(() => {
+    setVisited((previous) => new Set([...previous, loc.pathname]));
+  }, [loc.pathname]);
+  const goBack = useCallback(async () => {
+    if (keyboard && Capacitor.isNativePlatform()) {
+      await Keyboard.hide();
+      return;
+    }
+    if (closeTopOverlay()) return;
+    if (!getToken() && Capacitor.isNativePlatform()) {
+      await NativeApp.minimizeApp();
+      return;
+    }
+    if (loc.search) {
+      nav(loc.pathname, { replace: true });
+      return;
+    }
+    const parent =
+      loc.pathname === "/profile"
+        ? profileOrigin.current
+        : SCREENS[loc.pathname]?.parent;
+    if (parent) nav(parent);
+    else if (loc.pathname !== "/") nav("/");
+    else if (Capacitor.isNativePlatform()) await NativeApp.minimizeApp();
+  }, [keyboard, loc.pathname, loc.search, nav]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let cancelled = false;
+    const handles: { remove: () => Promise<void> }[] = [];
+    const register = async () => {
+      const listeners = await Promise.all([
+        NativeApp.addListener("backButton", () => {
+          void goBack();
+        }),
+        Keyboard.addListener("keyboardDidShow", () => setKeyboard(true)),
+        Keyboard.addListener("keyboardDidHide", () => setKeyboard(false)),
+      ]);
+      if (cancelled) listeners.forEach((h) => void h.remove());
+      else handles.push(...listeners);
+    };
+    void register();
+    return () => {
+      cancelled = true;
+      handles.forEach((h) => void h.remove());
+    };
+  }, [goBack]);
+  useEffect(() => {
+    if (Capacitor.isNativePlatform())
+      void SystemBars.setStyle({ style: SystemBarsStyle.Light });
+  }, []);
+  const logout = () => {
+    setToken(null);
+    saveUser(null);
+    setUser(null);
+    setVisited(new Set(["/"]));
+    nav("/login", { replace: true });
+  };
+  if (loading)
+    return (
+      <div className="app-frame">
+        <div className="screen-scroll">
+          <LoadingState />
+        </div>
+      </div>
+    );
+  if (!session)
+    return (
+      <div className="app-frame">
+        <Auth
+          onAuthed={(u) => {
+            setUser(u);
+            nav("/", { replace: true });
+          }}
+        />
+      </div>
+    );
+  const config = SCREENS[loc.pathname];
+  if (!config) return <Navigate to="/" replace />;
+  const initial = String(user?.display_name || user?.email || "A")
+    .slice(0, 1)
+    .toUpperCase();
+  const pages: Record<string, React.ReactNode> = {
+    "/": <Dashboard user={user} />,
+    "/calendar": <Calendar />,
+    "/ai": <AICopilot active={loc.pathname === "/ai"} />,
+    "/finance": <Finance />,
+    "/space": <Space />,
+    "/profile": <Profile user={user} onLogout={logout} />,
+    "/workout": <Workout />,
+    "/habits": <Habits />,
+    "/notes": <Notes />,
+  };
+  return (
+    <FeedbackProvider>
+      <div className={`app-frame ${keyboard ? "keyboard-open" : ""}`}>
+        <header className="app-bar">
+          {config.parent && (
+            <IconButton
+              icon="arrow_back"
+              label="Kembali"
+              onClick={() => void goBack()}
+            />
+          )}
+          <div className="bar-copy">
+            <h1>{config.title}</h1>
+            {loc.pathname === "/" && (
+              <small>
+                {new Date().toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              </small>
+            )}
+          </div>
+          {!config.parent && (
+            <button
+              type="button"
+              className="avatar"
+              aria-label="Buka profil"
+              onClick={() => {
+                profileOrigin.current = loc.pathname;
+                nav("/profile");
+              }}
+            >
+              {initial}
+            </button>
+          )}
+        </header>
+        <div className="workspace">
+          <main className="screens" id="main-content">
+            {Object.entries(pages)
+              .filter(([path]) => visited.has(path) || path === loc.pathname)
+              .map(([path, page]) => (
+                <div
+                  key={path}
+                  className="screen"
+                  hidden={path !== loc.pathname}
+                  data-screen={path}
+                >
+                  {page}
+                </div>
+              ))}
+          </main>
+          {!config.parent && !keyboard && (
+            <nav className="bottom-nav" aria-label="Navigasi utama">
+              {TABS.map(([path, item]) => (
+                <NavLink
+                  key={path}
+                  end={path === "/"}
+                  to={path}
+                  className={({ isActive }) =>
+                    `nav-item ${isActive ? "active" : ""}`
+                  }
+                >
+                  <span className="nav-indicator">
+                    <Icon name={item.icon!} />
+                  </span>
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+          )}
+        </div>
+      </div>
+    </FeedbackProvider>
+  );
 }

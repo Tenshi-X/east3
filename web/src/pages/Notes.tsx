@@ -1,134 +1,245 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api';
-
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../api";
+import {
+  Button,
+  changed,
+  EmptyState,
+  ErrorState,
+  Fab,
+  Field,
+  Form,
+  Icon,
+  IconButton,
+  LoadingState,
+  messageOf,
+  Modal,
+  useCreatePanel,
+  useFeedback,
+  usePageLoad,
+} from "../ui";
 export default function Notes() {
+  const nav = useNavigate();
+  const panel = useCreatePanel("/notes");
+  const feedback = useFeedback();
   const [notes, setNotes] = useState<any[]>([]);
-  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [searchUsed, setSearchUsed] = useState(false);
-
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-
+  const [searched, setSearched] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [detail, setDetail] = useState<any>(null);
   const load = useCallback(async () => {
     try {
-      const r = await api.list('notes', { order_by: 'updated_at', order_dir: 'desc', limit: '100' });
-      setNotes(r.data ?? []);
-      setSearchUsed(false);
-    } catch (e: any) {
-      setErr(e.message);
+      const r = await api.list("notes", {
+        order_by: "updated_at",
+        order_dir: "desc",
+        limit: "100",
+      });
+      setNotes(r.data || []);
+      setSearched(false);
+      setError("");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const addNote = async () => {
-    if (!title.trim() && !content.trim()) return;
+  usePageLoad("/notes", load);
+  const save = async () => {
+    if (busy) return;
+    if (!title.trim() && !content.trim()) {
+      setFormError("Isi judul atau catatan terlebih dahulu.");
+      return;
+    }
     setBusy(true);
-    setErr('');
+    setFormError("");
     try {
-      await api.create('notes', { title: title.trim() || 'Untitled', content });
-      setTitle('');
-      setContent('');
-      load();
-    } catch (e: any) {
-      setErr(e.message);
+      await api.create("notes", {
+        title: title.trim() || "Tanpa judul",
+        content,
+      });
+      setTitle("");
+      setContent("");
+      panel.close();
+      feedback.notify("Catatan disimpan");
+      changed();
+    } catch (e) {
+      setFormError(messageOf(e));
     } finally {
       setBusy(false);
     }
   };
-
-  const removeNote = async (id: string) => {
-    await api.remove('notes', id);
-    load();
-  };
-
-  const search = async () => {
-    if (!query.trim()) return load();
+  const search = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searching) return;
+    if (!query.trim()) {
+      void load();
+      return;
+    }
     setSearching(true);
-    setErr('');
+    setError("");
     try {
       const r = await api.semanticSearch(query.trim());
-      setNotes(r.results ?? []);
-      setSearchUsed(true);
-    } catch (e: any) {
-      setErr(e.message);
+      setNotes(r.results || []);
+      setSearched(true);
+    } catch (e) {
+      setError(messageOf(e));
     } finally {
       setSearching(false);
     }
   };
-
+  const remove = async (n: any) => {
+    if (busy || !(await feedback.confirm("Hapus catatan ini?"))) return;
+    setBusy(true);
+    try {
+      await api.remove("notes", n.id);
+      setDetail(null);
+      feedback.notify("Catatan dihapus");
+      changed();
+    } catch (e) {
+      feedback.notify(messageOf(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <div>
-      <p className="page-sub">Catat & cari catatan dengan semantic search (AI)</p>
-      {err && <div className="error-box">{err}</div>}
-
-      <div className="card">
-        <h3>🔍 Cari Catatan (Semantic)</h3>
-        <div className="search-row">
-          <input
-            className="grow"
-            placeholder='mis. "ide bisnis" atau "cara tidur lebih baik"'
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && search()}
-          />
-          <button className="btn" onClick={search} disabled={searching}>
-            {searching ? 'Mencari…' : 'Cari'}
-          </button>
-        </div>
-      </div>
-
-      <div className="card section">
-        <h3>➕ Catatan Baru</h3>
-        <input
-          className="full"
-          placeholder="Judul"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{ marginBottom: 8 }}
-        />
-        <textarea
-          className="full"
-          placeholder="Isi catatan…"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          style={{ marginBottom: 8 }}
-        />
-        <button className="btn" onClick={addNote} disabled={busy}>
-          Simpan
-        </button>
-      </div>
-
-      <div className="section">
-        <div className="row between" style={{ marginBottom: 10 }}>
-          <span className="meta">{searchUsed ? `Hasil pencarian: ${notes.length}` : `${notes.length} catatan`}</span>
-          {searchUsed && (
-            <button className="btn ghost small" onClick={load}>
-              Lihat semua
-            </button>
+    <>
+      <div className="screen-scroll">
+        <div className="content-width">
+          <form className="search-form" onSubmit={search}>
+            <input
+              className="search-input"
+              type="search"
+              aria-label="Cari catatan"
+              placeholder="Cari ide atau isi catatan"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <IconButton
+              icon="search"
+              label="Cari"
+              type="submit"
+              disabled={searching}
+            />
+          </form>
+          <ErrorState message={error} onRetry={() => void load()} />
+          <div className="section-heading section">
+            <h2>{searched ? "Hasil pencarian" : "Semua catatan"}</h2>
+            {searched && (
+              <Button
+                variant="text"
+                onClick={() => {
+                  setQuery("");
+                  void load();
+                }}
+              >
+                Lihat semua
+              </Button>
+            )}
+          </div>
+          {loading || searching ? (
+            <LoadingState />
+          ) : notes.length ? (
+            <div className="list">
+              {notes.map((n) => (
+                <button
+                  type="button"
+                  className="list-row note-row"
+                  key={n.id}
+                  onClick={() => setDetail(n)}
+                >
+                  <span className="list-icon">
+                    <Icon name="edit_note" />
+                  </span>
+                  <span className="copy">
+                    <strong>{n.title || "Tanpa judul"}</strong>
+                    <p className="clamp-2">{n.content}</p>
+                    <p>
+                      {n.updated_at
+                        ? new Date(n.updated_at).toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : ""}
+                    </p>
+                  </span>
+                  <Icon name="chevron_right" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            !error && (
+              <EmptyState
+                title={
+                  searched
+                    ? "Belum menemukan yang cocok"
+                    : "Ide bagus dimulai di sini"
+                }
+                icon="edit_note"
+              >
+                {searched
+                  ? "Coba kata lain untuk mencari catatan."
+                  : "Simpan ide, rencana, atau hal yang ingin diingat."}
+              </EmptyState>
+            )
           )}
         </div>
-        {notes.length === 0 && <p className="empty">Belum ada catatan.</p>}
-        {notes.map((n) => (
-          <div key={n.id} className="card" style={{ marginBottom: 10 }}>
-            <div className="row between">
-              <h3 style={{ marginBottom: 0 }}>{n.title}</h3>
-              <button className="btn danger" onClick={() => removeNote(n.id)}>
-                ✕
-              </button>
-            </div>
-            <p style={{ marginTop: 8, whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{n.content}</p>
-            <p className="meta" style={{ marginTop: 8 }}>
-              {(n.updated_at ?? '').slice(0, 16).replace('T', ' ')}
-            </p>
-          </div>
-        ))}
       </div>
-    </div>
+      <Fab label="Catatan baru" onClick={() => nav("/notes?new=1")} />
+      <Modal
+        full
+        open={panel.open}
+        title="Catatan baru"
+        onClose={panel.close}
+        busy={busy}
+      >
+        <Form onSubmit={save}>
+          <Field label="Judul">
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
+          <Field label="Isi catatan">
+            <textarea
+              className="note-body"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </Field>
+          <ErrorState message={formError} />
+          <Button type="submit" disabled={busy}>
+            {busy ? "Menyimpan…" : "Simpan catatan"}
+          </Button>
+          <p className="meta">Draf tetap tersedia selama aplikasi terbuka.</p>
+        </Form>
+      </Modal>
+      <Modal
+        full
+        open={!!detail}
+        title={detail?.title || "Catatan"}
+        onClose={() => setDetail(null)}
+        busy={busy}
+      >
+        <article className="note-detail">{detail?.content}</article>
+        <div className="form-actions">
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={() => void remove(detail)}
+          >
+            <Icon name="delete" />
+            Hapus catatan
+          </Button>
+        </div>
+      </Modal>
+    </>
   );
 }
