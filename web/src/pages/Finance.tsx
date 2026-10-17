@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api, todayStr, rupiah } from '../api';
+import { api, todayStr, rupiah, monthRange, localDate } from '../api';
 
 const CATEGORIES = [
   'food',
@@ -35,7 +35,7 @@ export default function Finance() {
   const load = useCallback(async () => {
     try {
       const [tx, b] = await Promise.all([
-        api.list('transactions', { limit: '200' }),
+        api.listAll('transactions', monthRange(month)),
         api.list('budgets', { filter_eq_month: month }),
       ]);
       setTxs(tx.data ?? []);
@@ -52,7 +52,7 @@ export default function Finance() {
   const monthTx = useMemo(
     () =>
       txs
-        .filter((t) => (t.occurred_at ?? '').slice(0, 7) === month)
+        .filter((t) => localDate(t.occurred_at).slice(0, 7) === month)
         .sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1)),
     [txs, month]
   );
@@ -78,7 +78,7 @@ export default function Finance() {
         type,
         category,
         note: note || null,
-        occurred_at: date,
+        occurred_at: new Date(`${date}T12:00:00`).toISOString(),
       });
       setAmount('');
       setNote('');
@@ -178,8 +178,8 @@ function FinanceView(props: any) {
 const now = new Date();
 const days = Array.from({ length: 7 }, (_x, i) => {
 const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
-const key = d.toISOString().slice(0, 10);
-const dayTxs = txs.filter((t: any) => (t.occurred_at ?? '').slice(0, 10) === key);
+const key = todayStr(d);
+const dayTxs = txs.filter((t: any) => localDate(t.occurred_at) === key);
 return {
 label: d.toLocaleDateString('id-ID', { weekday: 'short' }),
 inc: dayTxs.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + Number(t.amount), 0),

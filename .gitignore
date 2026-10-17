@@ -58,3 +58,4 @@ _srvbuild/
 _srv.*
 _token.txt
 .env*
+!web/.env.android

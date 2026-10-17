@@ -253,7 +253,7 @@ CREATE OR REPLACE FUNCTION search_notes(
   query_embedding  vector(768),
   match_threshold  FLOAT DEFAULT 0.7,
   match_count      INT   DEFAULT 5,
-  p_user_id        UUID
+  p_user_id        UUID DEFAULT NULL
 )
 RETURNS TABLE (
   id         UUID,

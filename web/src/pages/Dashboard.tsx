@@ -1,6 +1,6 @@
 import { useCallback,useEffect,useRef,useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api,todayStr,rupiah,timeOf } from '../api';
+import { api,todayStr,rupiah,timeOf,monthRange,localDate,addDays } from '../api';
 
 const SPLIT_LABEL: Record<string,string> = {
  push:'Push Day',
@@ -32,9 +32,9 @@ export default function Dashboard({ user }: { user:any }) {
  const load = useCallback(async () => {
    try {
      const [ev,br,tx,pl,ha,lo,ta] = await Promise.all([
-       api.list('events',{ filter_gte_start_time:`${today}T00:00:00`, filter_lte_start_time:`${today}T23:59:59`, order_by:'start_time', order_dir:'asc' }),
+       api.listAll('events',{ filter_gte_start_time:new Date(`${today}T00:00:00`).toISOString(), filter_lt_start_time:new Date(`${addDays(today, 1)}T00:00:00`).toISOString(), order_by:'start_time', order_dir:'asc' }),
        api.list('morning_briefs',{ filter_eq_date:today, limit:'1' }),
-       api.list('transactions',{ limit:'200' }),
+       api.listAll('transactions',monthRange(today.slice(0, 7))),
        api.list('workout_plans',{}),
        api.list('habits',{ filter_eq_is_active:'true' }),
        api.list('habit_logs',{ filter_eq_date:today }),
@@ -54,7 +54,7 @@ export default function Dashboard({ user }: { user:any }) {
  useEffect(() => { if (focusTask && taskRef.current) taskRef.current.focus(); }, [focusTask]);
 
  const month = today.slice(0, 7);
- const monthTx = txs.filter(t => (t.occurred_at ?? '').slice(0, 7) === month);
+ const monthTx = txs.filter(t => localDate(t.occurred_at).slice(0, 7) === month);
  const income = monthTx.filter(t => t.type === 'income').reduce((s,t) => s + Number(t.amount), 0);
  const expense = monthTx.filter(t => t.type === 'expense').reduce((s,t) => s + Number(t.amount),   0);
  const remaining = income - expense;

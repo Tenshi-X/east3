@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api';
+import { api, todayStr, localDate } from '../api';
+
+const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export default function Workout() {
   const [plans, setPlans] = useState<any[]>([]);
@@ -20,12 +22,12 @@ export default function Workout() {
     try {
       const [p, l] = await Promise.all([
         api.list('workout_plans', { order_by: 'day_of_week', order_dir: 'asc' }),
-        api.list('workout_logs', { order_by: 'performed_at', order_dir: 'desc', limit: '50' }),
+        api.list('workout_logs', { order_by: 'date', order_dir: 'desc', limit: '50' }),
       ]);
       setPlans(p.data ?? []);
       setLogs(l.data ?? []);
-      const planIds = (p.data ?? []).map((x: any) => x.id);
-      const allSets = planIds.length ? await api.list('workout_sets', { limit: '500' }) : { data: [] };
+      const logIds = (l.data ?? []).map((x: any) => x.id);
+      const allSets = logIds.length ? await api.listAll('workout_sets', { filter_in_workout_log_id: logIds.join(',') }) : { data: [] };
       setSets(allSets.data ?? []);
     } catch (e: any) {
       setErr(e.message);
@@ -41,7 +43,7 @@ export default function Workout() {
     setBusy(true);
     setErr('');
     try {
-      await api.create('workout_plans', { name: pName.trim(), split_type: pSplit, day_of_week: Number(pDay) });
+      await api.create('workout_plans', { name: pName.trim(), split_type: pSplit, day_of_week: [Number(pDay)] });
       setPName('');
       load();
     } catch (e: any) {
@@ -60,14 +62,17 @@ export default function Workout() {
     setBusy(true);
     setErr('');
     try {
-      const log = await api.create('workout_logs', { plan_id: plan.id, performed_at: new Date().toISOString() });
+      if (exName.trim() && (!Number.isInteger(Number(exReps)) || Number(exReps) <= 0 || !Number.isFinite(Number(exWeight)) || Number(exWeight) < 0)) {
+        throw new Error('Isi repetisi positif dan beban minimal 0 kg');
+      }
+      const log = await api.create('workout_logs', { plan_id: plan.id, date: todayStr() });
       if (exName.trim()) {
         await api.create('workout_sets', {
-          workout_log_id: log.id,
+          workout_log_id: log.data.id,
           exercise_name: exName.trim(),
           set_number: 1,
           reps: Number(exReps) || 10,
-          weight_kg: Number(exWeight) || 0,
+          weight: Number(exWeight) || 0,
         });
       }
       setExName('');
@@ -79,8 +84,6 @@ export default function Workout() {
     }
   };
 
-  const logIdToPlan: Record<string, any> = {};
-  for (const l of logs) logIdToPlan[l.id] = l.plan_id;
   const setsByLog = sets.reduce((acc: Record<string, any[]>, s) => {
     (acc[s.workout_log_id] = acc[s.workout_log_id] ?? []).push(s);
     return acc;
@@ -103,9 +106,9 @@ export default function Workout() {
             ))}
           </select>
           <select value={pDay} onChange={(e) => setPDay(e.target.value)}>
-            {['1', '2', '3', '4', '5', '6', '7'].map((d) => (
+            {['1', '2', '3', '4', '5', '6', '0'].map((d) => (
               <option key={d} value={d}>
-                Hari {d}
+                {DAYS[Number(d)]}
               </option>
             ))}
           </select>
@@ -124,7 +127,7 @@ export default function Workout() {
               <span className="meta">{p.split_type}</span>
             </div>
             <p className="meta" style={{ margin: '6px 0 12px' }}>
-              Hari {p.day_of_week}
+              {(p.day_of_week ?? []).map((day: number) => DAYS[day]).join(', ')}
             </p>
             <div className="exercise-fields">
               <input
@@ -157,12 +160,12 @@ export default function Workout() {
               <div className="title">
                 <div>{plan?.name ?? 'Workout'}</div>
                 <div className="meta">
-                  {(l.performed_at ?? '').slice(0, 16).replace('T', ' ')}
+                  {localDate(l.date)}
                   {ls.length > 0 && ` — ${ls.length} set`}
                 </div>
                 {ls.length > 0 && (
                   <div className="meta" style={{ marginTop: 4 }}>
-                    {ls.map((s) => `${s.exercise_name} ${s.reps}x@${s.weight_kg}kg`).join(' · ')}
+                    {ls.map((s) => `${s.exercise_name} ${s.reps}x@${s.weight ?? 0}kg`).join(' · ')}
                   </div>
                 )}
               </div>

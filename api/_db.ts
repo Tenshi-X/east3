@@ -1,4 +1,7 @@
-import { Pool } from 'pg';
+import { Pool, types } from 'pg';
+
+// DATE is a calendar date, not a timestamp in the server's timezone.
+types.setTypeParser(1082, value => value);
 
 // Global connection pool (reused across serverless invocations)
 let pool: Pool | null = null;

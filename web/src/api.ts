@@ -45,7 +45,7 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
     setToken(null);
     saveUser(null);
     window.location.href = '/login';
-    return;
+    throw new Error('Sesi berakhir. Silakan login kembali.');
   }
   if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
   if (body?.error) throw new Error(body.error);
@@ -69,6 +69,15 @@ export const api = {
 
   list: (table: string, params: Record<string, string> = {}) =>
     request(`/api/data/${table}?${new URLSearchParams(params).toString()}`),
+  listAll: async (table: string, params: Record<string, string> = {}) => {
+    const data: any[] = [];
+    const limit = 500;
+    for (let offset = 0; ; offset += limit) {
+      const page = await api.list(table, { ...params, limit: String(limit), offset: String(offset) });
+      data.push(...page.data);
+      if (!page.has_more) return { data };
+    }
+  },
   create: (table: string, data: any) =>
     request(`/api/data/${table}`, { method: 'POST', body: JSON.stringify(data) }),
   upsert: (table: string, data: any, onConflict: string) =>
@@ -88,6 +97,20 @@ export const api = {
   semanticSearch: (query: string) =>
     request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ action: 'search_notes', query }) }),
 };
+
+export function monthRange(month: string) {
+  const [year, number] = month.split('-').map(Number);
+  const next = todayStr(new Date(year, number, 1));
+  return {
+    filter_gte_occurred_at: new Date(`${month}-01T00:00:00`).toISOString(),
+    filter_lt_occurred_at: new Date(`${next}T00:00:00`).toISOString(),
+    order_by: 'occurred_at', order_dir: 'desc',
+  };
+}
+
+export function localDate(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : todayStr(new Date(value));
+}
 
 export function todayStr(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

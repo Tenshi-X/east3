@@ -5,18 +5,25 @@ export default function AICopilot() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [convId, setConvId] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [imageFile, setImageFile] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
     api
       .list('ai_conversations', { order_by: 'updated_at', order_dir: 'desc', limit: '1' })
-      .then((r) => {
-        if (r.data?.[0]) setConvId(r.data[0].id);
+      .then(async (r) => {
+        const id = r.data?.[0]?.id;
+        if (!id) return;
+        const history = await api.listAll('ai_messages', { filter_eq_conversation_id: id, order_by: 'created_at', order_dir: 'asc' });
+        if (active) { setConvId(id); setMessages(history.data); }
       })
-      .catch(() => {});
+      .catch((e) => { if (active) setErr(e.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -25,7 +32,7 @@ export default function AICopilot() {
 
   const send = async () => {
     const text = input.trim();
-    if ((!text && !imageFile) || busy) return;
+    if ((!text && !imageFile) || busy || loading) return;
     setInput('');
     setErr('');
     setMessages((m) => [...m, { role: 'user', content: text || '(Kirim gambar)' }]);
@@ -56,7 +63,8 @@ export default function AICopilot() {
       {err && <div className="error-box">{err}</div>}
 
       <div className="chat-box" ref={boxRef}>
-        {messages.length === 0 && (
+        {loading && <p className="empty">Memuat percakapan…</p>}
+        {!loading && messages.length === 0 && (
           <p className="empty" style={{ margin: 'auto' }}>
             Mulai chat, mis. "Catat pengeluaran makan siang 25rb" atau "Buatkan plan workout push hari ini"
           </p>
@@ -86,6 +94,11 @@ export default function AICopilot() {
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+              if (file.size > 3 * 1024 * 1024 || !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+                setErr('Gunakan gambar PNG, JPEG, WebP, atau GIF maksimal 3 MB');
+                e.target.value = '';
+                return;
+              }
               const reader = new FileReader();
               reader.onload = (ev) => setImageFile(ev.target?.result as string);
               reader.readAsDataURL(file);
@@ -99,14 +112,14 @@ export default function AICopilot() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          disabled={busy}
+          disabled={busy || loading}
         />
-        <button className="btn" onClick={send} disabled={busy || (!input.trim() && !imageFile)}>
+        <button className="btn" onClick={send} disabled={busy || loading || (!input.trim() && !imageFile)}>
           Kirim
         </button>
       </div>
       <p className="meta" style={{ marginTop: 8 }}>
-        Butuh OPENROUTER_API_KEY aktif di Netlify agar AI bisa menjawab & mengeksekusi tools (model free met fallback automatis).
+        Atlas memakai model AI gratis. Respons dapat tertunda saat layanan sedang sibuk.
       </p>
     </div>
   );

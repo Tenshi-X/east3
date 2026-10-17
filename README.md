@@ -135,13 +135,34 @@ npm run build --prefix web
 ```
 
 ### 4. Android (Capacitor)
-Sebelum build Android, isi URL **publik** deployment Vercel yang sebenarnya melalui environment `VITE_API_URL` atau file `web/.env.local`:
+Build Android memakai `web/.env.android`, yang saat ini menunjuk ke **https://east3.vercel.app**. File ini hanya berisi alamat publik; kredensial database dan AI tetap berada di backend.
+
+Untuk mengganti backend Android, ubah file tersebut atau isi environment `VITE_API_URL`:
 
 ```dotenv
 VITE_API_URL=https://your-project.vercel.app
 ```
 
-Gunakan origin tanpa akhiran `/api`. Ini pengaturan build frontend, bukan service binding. URL Vercel tidak ditebak oleh kode. Setelah mengisi nilainya, build ulang frontend, jalankan `npx cap sync android` dari folder `web`, lalu build/pasang ulang Android.
+Gunakan origin HTTPS tanpa akhiran `/api`. Build mode Android memvalidasi alamat ini. Dari root repository:
+
+```powershell
+npm test
+npm run build
+npm run android:prepare --prefix web
+```
+
+`android:prepare` memeriksa TypeScript frontend, membangun mode Android, lalu menyalin aset terbaru melalui Capacitor. Build PWA biasa tetap memakai API pada domain yang sama.
+
+Gunakan JDK 21 dan Android SDK yang dikonfigurasi di Android Studio. Untuk membuat APK debug dan menjalankan pemeriksaan Android di Windows:
+
+```powershell
+cd web/android
+.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
+```
+
+Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.1** (`versionCode 2`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
+
+Deploy backend dan frontend terbaru ke Vercel sebelum memakai APK: perbaikan akses antar-akun, penyimpanan chat, lampiran gambar, dan pagination membutuhkan backend terbaru. Pengujian lokal memakai database dan provider AI tiruan; pengujian HP serta koneksi produksi tetap diperlukan. Tidak ada migrasi wajib untuk database yang sudah mengikuti schema repository.
 
 ## API Endpoints
 

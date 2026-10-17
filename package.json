@@ -19,7 +19,8 @@
   "scripts": {
     "dev": "tsc --outDir .dev-build && node --env-file-if-exists=.env .dev-build/server.js",
     "build": "npm run typecheck",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.cjs"
   },
   "private": true
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, todayStr } from '../api';
+import { api, todayStr, localDate } from '../api';
 
 export default function Habits() {
   const [habits, setHabits] = useState<any[]>([]);
@@ -14,7 +14,7 @@ export default function Habits() {
     try {
       const [h, l] = await Promise.all([
         api.list('habits', { order_by: 'created_at', order_dir: 'asc' }),
-        api.list('habit_logs', { limit: '500' }),
+        api.listAll('habit_logs'),
       ]);
       setHabits(h.data ?? []);
       setLogs(l.data ?? []);
@@ -45,15 +45,15 @@ export default function Habits() {
   };
 
   const toggleToday = async (habit: any) => {
-    const existing = logs.find((l) => l.habit_id === habit.id && (l.log_date ?? '').slice(0, 10) === today);
+    const existing = logs.find((l) => l.habit_id === habit.id && localDate(l.date) === today);
     setBusy(true);
     try {
-      if (existing) {
-        await api.remove('habit_logs', existing.id);
-      } else {
-        await api.create('habit_logs', { habit_id: habit.id, log_date: today, completed: true });
-      }
-      load();
+      const completed = !existing?.is_completed;
+      await api.upsert('habit_logs', {
+        habit_id: habit.id, date: today,
+        value: completed ? Number(habit.target_value ?? 1) : 0, is_completed: completed,
+      }, 'habit_id,date');
+      await load();
     } catch (e: any) {
       setErr(e.message);
     } finally {
@@ -67,16 +67,16 @@ export default function Habits() {
   };
 
   const doneToday = (habitId: string) =>
-    logs.some((l) => l.habit_id === habitId && (l.log_date ?? '').slice(0, 10) === today);
+    logs.some((l) => l.habit_id === habitId && localDate(l.date) === today && l.is_completed);
 
   const streakOf = (habitId: string) => {
     const dates = new Set(
-      logs.filter((l) => l.habit_id === habitId).map((l) => (l.log_date ?? '').slice(0, 10))
+      logs.filter((l) => l.habit_id === habitId && l.is_completed).map((l) => localDate(l.date))
     );
     let streak = 0;
     const d = new Date();
     for (;;) {
-      const key = d.toISOString().slice(0, 10);
+      const key = todayStr(d);
       if (dates.has(key)) {
         streak++;
         d.setDate(d.getDate() - 1);

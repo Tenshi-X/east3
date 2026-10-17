@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { query, queryOne } from './_db';
-import { requireUser } from './_auth';
 import { searchNotesSemantic } from './_embedding';
 
 // ─── Tool definitions for OpenRouter function calling ────────────────────────
@@ -591,7 +590,7 @@ export async function executeTool(toolName: string, params: any, userId: string)
 
     case 'get_daily_summary': {
       const date = params.date ?? today;
-      const month = date.slice(0, 7);
+      const month = `${date.slice(0, 7)}-01`;
 
       const [events, priorities, txRows, habits, workouts] = await Promise.all([
         query(`SELECT title, start_time, end_time FROM events
@@ -633,7 +632,7 @@ export async function handleMorningBrief(userId: string, date: string, systemPro
   if (cached?.content) return cached.content;
 
   const today = date;
-  const month = date.slice(0, 7);
+  const month = `${date.slice(0, 7)}-01`;
 
   const [events, priorities, txRows, habits, workoutPlans] = await Promise.all([
     query(`SELECT title, start_time FROM events
@@ -652,7 +651,7 @@ export async function handleMorningBrief(userId: string, date: string, systemPro
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
 
   const todayPlan = workoutPlans.find((p: any) =>
-    p.day_of_week?.includes(new Date().getDay())
+    p.day_of_week?.includes(new Date(`${date}T12:00:00Z`).getUTCDay())
   );
 
   const context = {
@@ -694,121 +693,7 @@ Format: 2-3 paragraf singkat. Mulai dengan sapaan + tanggal. Sebutkan agenda har
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { user, error } = await requireUser(req);
-  if (error || !user) return res.status(401).json({ error: error ?? 'Unauthorized' });
-  const userId = user.id;
-
-  const { action, conversation_id, message, date, image } = req.body;
-
-  // Get user profile for timezone
-  const profile = await queryOne<{ timezone: string }>(
-    `SELECT timezone FROM users WHERE id = $1`, [userId]
-  );
-  const timezone = profile?.timezone ?? 'Asia/Jakarta';
-  const systemPrompt = buildSystemPrompt(timezone);
-
-  // Handle morning brief request
-  if (action === 'morning_brief') {
-    try {
-      const today = date ?? new Date().toISOString().split('T')[0];
-      const brief = await handleMorningBrief(userId, today, systemPrompt);
-      return res.json({ brief });
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
-    }
-  }
-
-  // Handle semantic note search
-  if (action === 'search_notes') {
-    try {
-      const results = await searchNotesSemantic(userId, String((req.body as any).query ?? ''));
-      return res.json({ results });
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
-    }
-  }
-
-  // Handle regular chat message
-  if (!message || !conversation_id) {
-    return res.status(400).json({ error: 'message and conversation_id required' });
-  }
-
-  // Verify conversation ownership
-  const conv = await queryOne(`SELECT id FROM ai_conversations WHERE id = $1 AND user_id = $2`, [conversation_id, userId]);
-  if (!conv) return res.status(404).json({ error: 'Conversation not found' });
-
-  // Load conversation history
-  const historyRows = await query<{ role: string; content: string }>(
-    `SELECT role, content FROM ai_messages
-     WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 20`,
-    [conversation_id]
-  );
-
-  const history = historyRows.map((m: any) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
-
-  const userParts: any[] = [{ text: message }];
-  if (image) {
-    userParts.push({ inlineData: image });
-  }
-  history.push({ role: 'user', parts: userParts });
-
-  let responseText = '';
-  let modelUsed = 'openrouter:free';
-
-  try {
-    const result = await callOpenRouter(history, systemPrompt);
-    modelUsed = (result as any)?.modelUsed ?? 'openrouter:free';
-
-    const candidate = result?.candidates?.[0];
-    const parts = candidate?.content?.parts ?? [];
-
-    const toolCalls = parts.filter((p: any) => p.functionCall);
-
-    if (toolCalls.length > 0) {
-      const toolResults: any[] = [];
-
-      for (const part of toolCalls) {
-        const { name, args } = part.functionCall;
-        try {
-          const toolResult = await executeTool(name, args, userId);
-
-          await query(
-            `INSERT INTO ai_action_logs (user_id, tool_name, params, result, model_used)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [userId, name, JSON.stringify(args), JSON.stringify(toolResult), modelUsed]
-          );
-
-          toolResults.push({ tool: name, result: toolResult });
-        } catch (toolErr: any) {
-          toolResults.push({ tool: name, error: toolErr.message });
-        }
-      }
-
-      const successCount = toolResults.filter(r => !r.error).length;
-      const messages = toolResults.map(r =>
-        r.error ? `❌ ${r.tool}: ${r.error}` : `✅ ${r.result?.message ?? 'Berhasil'}`
-      );
-
-      responseText = messages.join('\n');
-
-      if (successCount > 0 && successCount === toolResults.length) {
-        responseText += '\n\nAda hal lain yang bisa aku bantu?';
-      }
-    } else {
-      responseText = parts.find((p: any) => p.text)?.text ?? 'Maaf, aku tidak bisa memproses permintaan itu sekarang.';
-    }
-
-  } catch (err: any) {
-    console.error('AI proxy error:', err);
-    responseText = 'Maaf, AI sedang sibuk. Coba lagi sebentar lagi ya 🙏';
-  }
-
-  return res.json({ message: responseText, model_used: modelUsed });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { handleAIRequest } = await import('./_ai-handler.js');
+  return handleAIRequest(req, res);
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, timeOf } from '../api';
+import { api, timeOf, localDate } from '../api';
 
 const COLORS = ['#3B82F6', '#16A34A', '#F59E0B', '#EF4444', '#A855F7', '#0EA5E9'];
 const DOW = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
@@ -27,7 +27,7 @@ const setSelectedDate = (d: Date) => { setSel(d); setDate(keyOf(d)); };
 
 const load = useCallback(async () => {
 try {
-const r = await api.list('events', { order_by: 'start_time', order_dir: 'asc', limit: '300' });
+const r = await api.listAll('events', { order_by: 'start_time', order_dir: 'asc' });
 setEvents(r.data ?? []);
 } catch (e: any) { setErr(e.message); }
 }, []);
@@ -40,7 +40,10 @@ if (!title.trim()) return;
 setBusy(true);
 setErr('');
 try {
-await api.create('events', { title: title.trim(), start_time: `${date}T${start}:00`, end_time: `${date}T${end}:00`, color });
+const startTime = new Date(`${date}T${start}:00`);
+const endTime = new Date(`${date}T${end}:00`);
+if (endTime <= startTime) throw new Error('Waktu selesai harus setelah waktu mulai');
+await api.create('events', { title: title.trim(), start_time: startTime.toISOString(), end_time: endTime.toISOString(), color });
 setTitle('');
 load();
 } catch (e: any) { setErr(e.message); }
@@ -61,7 +64,7 @@ load();
 finally { setNlBusy(false); }
 };
 
-const byDay = (d: string) => events.filter(e => (e.start_time ?? '').slice(0, 10) === d);
+const byDay = (d: string) => events.filter(e => localDate(e.start_time) === d);
 const selKey = keyOf(sel);
 const hasEvent = (d: string) => byDay(d).length > 0;
 
@@ -80,7 +83,12 @@ weekStart.setDate(sel.getDate() - sel.getDay());
 const weekDays = Array.from({ length: 7 }, (_x, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; });
 
 const todayKey = keyOf(new Date());
-const move = (dir: number) => { const d = new Date(sel); d.setDate(d.getDate() + dir); setSel(d); };
+const move = (dir: number) => {
+const d = new Date(sel);
+if (view === 'month') { d.setDate(1); d.setMonth(d.getMonth() + dir); }
+else d.setDate(d.getDate() + dir * (view === 'week' ? 7 : 1));
+setSelectedDate(d);
+};
 return (
 <div>
 {err && <div className="error-box">{err}</div>}
@@ -169,7 +177,7 @@ return (
 {events.map(ev => (
 <div key={ev.id} className="item">
 <span className="dot" style={{ background: ev.color || COLORS[0] }} />
-<div className="title"><div>{ev.title}</div><div className="meta">{(ev.start_time ?? '').slice(0, 10)} {timeOf(ev.start_time)} - {timeOf(ev.end_time)}</div></div>
+<div className="title"><div>{ev.title}</div><div className="meta">{localDate(ev.start_time)} {timeOf(ev.start_time)} - {timeOf(ev.end_time)}</div></div>
 <button className="btn danger small" onClick={() => removeEvent(ev.id)}>Hapus</button>
 </div>
 ))}
