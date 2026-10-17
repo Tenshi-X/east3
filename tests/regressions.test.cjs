@@ -135,6 +135,51 @@ test('transaction wallet assignment requires ownership on insert and update', as
   assert.match(queries.at(-1).sql, /transactions.user_id/);
 });
 
+test('missing wallet schemas return an actionable error and recover without caching empty columns', async () => {
+  const original = db.query;
+  let exists = false, inspections = 0, selects = 0;
+  db.query = async (sql, params = []) => {
+    if (sql.includes('information_schema.columns') && params[0] === 'wallets') {
+      inspections++;
+      return exists ? columns.wallets.map(column_name => ({ column_name })) : [];
+    }
+    if (sql.includes('FROM wallets WHERE')) {
+      selects++;
+      if (!exists) throw Object.assign(new Error('missing wallets'), { code: '42P01' });
+    }
+    return original(sql, params);
+  };
+  const unavailable = await data('GET', 'wallets');
+  assert.equal(unavailable.statusCode, 503);
+  assert.match(unavailable.body.error, /migrasi database/);
+  const before = selects;
+  assert.equal((await data('GET', 'wallets')).statusCode, 503);
+  assert.equal(selects, before);
+  exists = true;
+  assert.equal((await data('GET', 'wallets')).statusCode, 200);
+  assert.ok(inspections >= 2);
+});
+
+test('warm API instances refresh transaction columns added by a migration', async () => {
+  const original = db.query;
+  let missingColumn = true, upgraded = false, inspections = 0;
+  db.query = async (sql, params = []) => {
+    if (sql.includes('information_schema.columns') && params[0] === 'transactions') {
+      inspections++;
+      return columns.transactions.filter(column => upgraded || column !== 'wallet_id').map(column_name => ({ column_name }));
+    }
+    if (missingColumn && sql.startsWith('SELECT * FROM transactions')) throw Object.assign(new Error('schema not ready'), { code: '42703' });
+    return original(sql, params);
+  };
+  assert.equal((await data('GET', 'transactions')).statusCode, 503);
+  missingColumn = false;
+  assert.equal((await data('GET', 'transactions')).statusCode, 200);
+  upgraded = true;
+  assert.equal((await data('POST', 'transactions', { amount: 25, type: 'expense', category: 'food', wallet_id: null })).statusCode, 201);
+  assert.ok(inspections >= 2);
+  assert.match(queries.at(-1).sql, /wallet_id/);
+});
+
 test('habit increments add atomically, clamp at zero and calculate completion against the target', async () => {
   const res = await data('POST', 'habit_logs', { habit_id: 'own', date: '2026-10-17', delta: 250 }, 'increment');
   assert.equal(res.statusCode, 200);

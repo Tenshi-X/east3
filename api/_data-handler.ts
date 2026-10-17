@@ -24,10 +24,12 @@ class RequestError extends Error {
   constructor(public statusCode: number, message: string) { super(message); }
 }
 
-async function columnsFor(table: string) {
+async function columnsFor(table: string, refresh = false) {
+  if (refresh) columnCache.delete(table);
   if (!columnCache.has(table)) {
     const rows = await query<{ column_name: string }>(
       "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", [table]);
+    if (!rows.length) throw new RequestError(503, 'Pembaruan database belum diterapkan. Jalankan migrasi database sebelum memakai fitur ini.');
     columnCache.set(table, new Set(rows.map(row => row.column_name)));
   }
   return columnCache.get(table)!;
@@ -67,7 +69,7 @@ export async function handleDataRequest(req: DataRequest, res: DataResponse, tab
     if (!TABLES.has(table)) return res.status(400).json({ error: 'Invalid table' });
     const method = req.method ?? 'GET';
     const q = req.query ?? {};
-    const cols = await columnsFor(table);
+    let cols = await columnsFor(table);
 
     // Increment in PostgreSQL so simultaneous clicks/devices do not lose progress.
     if (method === 'POST' && table === 'habit_logs' && id === 'increment') {
@@ -136,6 +138,8 @@ export async function handleDataRequest(req: DataRequest, res: DataResponse, tab
       const row = upsert ? req.body?.row : req.body;
       if (!row || typeof row !== 'object' || Array.isArray(row)) throw new RequestError(400, 'Body must be an object');
       for (const key of Object.keys(row)) {
+        // A warm API instance may still have columns from before an additive migration.
+        if (!cols.has(key) && !PROTECTED.has(key)) cols = await columnsFor(table, true);
         if (!cols.has(key) || PROTECTED.has(key)) throw new RequestError(400, `Invalid field: ${key}`);
       }
       if (!Object.keys(row).length) throw new RequestError(400, 'No fields provided');
@@ -193,6 +197,10 @@ export async function handleDataRequest(req: DataRequest, res: DataResponse, tab
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
     if (error instanceof RequestError) return res.status(error.statusCode).json({ error: error.message });
+    if (['42P01', '42703'].includes(error.code)) {
+      columnCache.delete(table);
+      return res.status(503).json({ error: 'Pembaruan database belum diterapkan. Jalankan migrasi database sebelum memakai fitur ini.' });
+    }
     if (error.code === '23503' && table === 'wallets') return res.status(409).json({ error: 'Kantong masih memiliki transaksi. Pindahkan transaksinya sebelum menghapus kantong.' });
     if (['22P02', '22003', '22007', '22008', '23502', '23503', '23514'].includes(error.code)) return res.status(400).json({ error: 'Invalid data' });
     if (error.code === '23505') return res.status(409).json({ error: 'Data already exists' });

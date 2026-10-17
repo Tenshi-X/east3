@@ -90,7 +90,7 @@ The mobile app never talks to the database directly. All requests go through the
 
 ### 2. Deploy PWA + API (Vercel Services)
 1. Import repository ini di Vercel. Pilih **Root Directory `.`**, bukan `web`; konfigurasi kedua services ada di `vercel.json`.
-2. Services dibangun terpisah: `app` (Express, `server.ts`) dan `web` (Vite, hasil build `web/dist`). Build masing-masing memakai `npm run build`; pengaturan build ada pada services, bukan di tingkat atas.
+2. Services dibangun terpisah: `app` (Express, `server.ts`) dan `web` (Vite, hasil build `web/dist`). Build API menjalankan `npm run build && npm run db:migrate`; build frontend menjalankan `npm run build`. Pengaturan build ada pada services, bukan di tingkat atas. Migrasi yang belum diterapkan dijalankan sebelum API baru dipublikasikan; kegagalan migrasi menggagalkan build API.
 3. Salin environment variables dari project Netlify ke Vercel (Settings → Environment Variables), untuk Production dan Preview sesuai kebutuhan:
    - `DATABASE_URL` — your Neon connection string
    - `OPENROUTER_API_KEY` — from [OpenRouter](https://openrouter.ai/settings/keys) (the ONLY AI provider; chat always uses free models with automatic fallback)
@@ -166,7 +166,11 @@ Deploy backend dan frontend terbaru ke Vercel sebelum memakai APK: perbaikan aks
 
 ### Kantong keuangan dan template kebiasaan
 
-Untuk database yang sudah ada, jalankan **hanya** `db/migrations/20261017_wallets_habit_templates.sql` di Neon SQL Editor sebelum deploy backend dan frontend. Migrasi dapat dijalankan ulang dan mempertahankan data lama. Instalasi baru menggunakan `db/schema.sql` seperti biasa.
+Untuk database yang sudah ada, migrasi dijalankan otomatis saat build API Vercel, memakai `DATABASE_URL` environment deployment tersebut. Untuk menerapkan lebih awal dari komputer lokal, pastikan `.env` menunjuk database yang dipakai API lalu jalankan `npm run db:migrate`. Alternatif manual: jalankan **hanya** `db/migrations/20261017_wallets_habit_templates.sql` di Neon SQL Editor. Migrasi ini dapat dijalankan ulang dan mempertahankan data lama. Instalasi baru menggunakan `db/schema.sql` seperti biasa.
+
+Perintah migrasi menyimpan riwayat di `public.schema_migrations`, mengunci proses migrasi paralel, dan menerapkan seluruh migrasi tertunda dalam satu transaksi. Jangan mengedit migrasi yang sudah tercatat; tambahkan berkas SQL baru untuk perubahan berikutnya. Build lokal biasa (`npm run build`) tidak mengubah database.
+
+Jika `/api/data/wallets` melaporkan `relation "wallets" does not exist`, deployment API menggunakan database yang belum dimigrasi. Jalankan `npm run db:migrate` dengan `DATABASE_URL` yang sama, lalu deploy ulang API agar instans lama dengan cache kolom kosong ikut terganti. API yang diperbarui tidak menyimpan cache untuk tabel yang belum ada dan akan menyegarkan cache jika menerima kolom baru setelah migrasi.
 
 - **Keuangan → Kantong**: buat atau ubah rekening bank, GoPay/e-wallet, tunai, atau kantong lain, beserta saldo awalnya. Saldo kantong dihitung dari saldo awal dan seluruh transaksi yang terhubung, terlepas dari bulan yang dipilih. Saldo awal tidak masuk ringkasan pemasukan bulanan.
 - Form transaksi menyediakan pilihan kantong. Transaksi lama tetap berlabel **Tanpa kantong**; gunakan tombol ubah untuk menempatkannya ke rekening yang sesuai. Filter kantong berlaku pada daftar transaksi. Kantong yang masih memiliki transaksi tidak dapat dihapus sampai transaksinya dipindahkan.
