@@ -160,7 +160,7 @@ cd web/android
 .\gradlew.bat assembleDebug testDebugUnitTest lintDebug
 ```
 
-Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.1** (`versionCode 2`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
+Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.2** (`versionCode 3`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
 
 Deploy backend dan frontend terbaru ke Vercel sebelum memakai APK: perbaikan akses antar-akun, penyimpanan chat, lampiran gambar, dan pagination membutuhkan backend terbaru. Pengujian lokal memakai database dan provider AI tiruan; pengujian HP serta koneksi produksi tetap diperlukan. Untuk pembaruan kantong dan template kebiasaan, jalankan migrasi berikut terlebih dahulu.
 
