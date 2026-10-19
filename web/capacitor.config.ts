@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
     SystemBars: {
       insetsHandling: "native",
       initialViewportFitValueHint: "cover",
-      style: "LIGHT",
+      style: "DARK",
     },
   },
 };

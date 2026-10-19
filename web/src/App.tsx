@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Capacitor, SystemBars, SystemBarsStyle } from "@capacitor/core";
+import { Capacitor } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
 import { Keyboard } from "@capacitor/keyboard";
 import { api, getToken, loadUser, saveUser, setToken } from "./api";
@@ -131,10 +131,6 @@ export default function App() {
       handles.forEach((h) => void h.remove());
     };
   }, [goBack]);
-  useEffect(() => {
-    if (Capacitor.isNativePlatform())
-      void SystemBars.setStyle({ style: SystemBarsStyle.Light });
-  }, []);
   const logout = () => {
     setToken(null);
     saveUser(null);

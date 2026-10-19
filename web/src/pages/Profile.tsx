@@ -1,4 +1,5 @@
-import { Button, Icon } from "../ui";
+import { Button, Icon, Segments } from "../ui";
+import { useTheme } from "../theme";
 export default function Profile({
   user,
   onLogout,
@@ -7,6 +8,7 @@ export default function Profile({
   onLogout: () => void;
 }) {
   const name = user?.display_name || "Pengguna";
+  const { preference, setPreference } = useTheme();
   return (
     <div className="screen-scroll">
       <div className="content-width">
@@ -15,6 +17,31 @@ export default function Profile({
           <h2>{name}</h2>
           <p className="muted">{user?.email}</p>
         </div>
+        <section
+          className="card theme-settings"
+          aria-labelledby="theme-heading"
+        >
+          <div className="row">
+            <div className="list-icon">
+              <Icon name="dark_mode" />
+            </div>
+            <div className="grow">
+              <h2 id="theme-heading">Tampilan</h2>
+              <p className="meta">Pilih tema yang nyaman untukmu.</p>
+            </div>
+          </div>
+          <Segments
+            label="Tema aplikasi"
+            value={preference}
+            onChange={setPreference}
+            options={[
+              { value: "dark", label: "Gelap" },
+              { value: "light", label: "Terang" },
+              { value: "system", label: "Ikuti perangkat" },
+            ]}
+          />
+          <p className="meta">Pilihan tema disimpan di perangkat ini.</p>
+        </section>
         <section className="card">
           <h2>Akun Atlas</h2>
           <p className="muted" style={{ marginTop: 8 }}>
