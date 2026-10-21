@@ -1,0 +1,98 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BUILD_REPO: ${{ github.repository }}
+      BUILD_SHA: ${{ github.sha }}
+      BUILD_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Report running build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$BUILD_REPO/statuses/$BUILD_SHA" \
+            -f state=pending -f context='Android APK' \
+            -f target_url="$BUILD_RUN_URL" -f description='Building an installable Android APK' >/dev/null
+
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix web
+      - name: Check application code
+        run: |
+          npm test
+          npm run build
+      - name: Prepare current Android assets
+        working-directory: web
+        run: npm run android:prepare
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+      - name: Keep the testing certificate between builds
+        uses: actions/cache@v5
+        with:
+          path: ~/.android/debug.keystore
+          key: atlas-android-debug-keystore-v1
+      - name: Build and check Android
+        working-directory: web/android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+      - name: Verify and package APK
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose web/android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p apk-output
+          cp web/android/app/build/outputs/apk/debug/app-debug.apk apk-output/Atlas-1.0.3-debug.apk
+          sha256sum apk-output/Atlas-1.0.3-debug.apk > apk-output/SHA256SUMS.txt
+      - name: Upload installable APK
+        id: apk
+        uses: actions/upload-artifact@v6
+        with:
+          name: Atlas-Android-APK
+          path: apk-output/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Report APK result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_URL: ${{ steps.apk.outputs.artifact-url }}
+        run: |
+          if [ -n "$ARTIFACT_URL" ]; then
+            gh api "repos/$BUILD_REPO/statuses/$BUILD_SHA" \
+              -f state=success -f context='Android APK' \
+              -f target_url="$ARTIFACT_URL" -f description='APK ready to download and install' >/dev/null
+          else
+            gh api "repos/$BUILD_REPO/statuses/$BUILD_SHA" \
+              -f state=failure -f context='Android APK' \
+              -f target_url="$BUILD_RUN_URL" -f description='APK build failed; inspect the build log' >/dev/null
+          fi

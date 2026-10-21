@@ -162,7 +162,9 @@ cd web/android
 .\gradlew.bat assembleDebug testDebugUnitTest lintDebug
 ```
 
-Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.2** (`versionCode 3`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
+Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.3** (`versionCode 4`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
+
+GitHub Actions **Android APK** membangun APK debug dari `main`, memeriksa unit test/lint Android dan tanda tangan APK, lalu menyediakan artifact `Atlas-Android-APK`. Build juga dapat dimulai dari tab Actions melalui **Run workflow**. Status commit **Android APK** menautkan proses build dan hasil unduh. Sertifikat debug disimpan pada cache Actions agar build pengujian berikutnya memakai kunci yang sama; sertifikat dari build lokal lama mungkin berbeda.
 
 Deploy backend dan frontend terbaru ke Vercel sebelum memakai APK: perbaikan akses antar-akun, penyimpanan chat, lampiran gambar, dan pagination membutuhkan backend terbaru. Pengujian lokal memakai database dan provider AI tiruan; pengujian HP serta koneksi produksi tetap diperlukan. Untuk pembaruan kantong dan template kebiasaan, jalankan migrasi berikut terlebih dahulu.
 
