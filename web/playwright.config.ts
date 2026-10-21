@@ -8,6 +8,7 @@ export default defineConfig({
     baseURL: process.env.ATLAS_TEST_URL || "http://127.0.0.1:5173",
     browserName: "chromium",
     channel: process.env.PLAYWRIGHT_CHANNEL || "chrome",
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH },
     viewport: { width: 390, height: 844 },
     timezoneId: "Asia/Jakarta",
     screenshot: "only-on-failure",

@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
@@ -16,6 +17,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: Number(process.env.PORT) || 5173,
       host: true,
+      fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../shared', import.meta.url))] },
       proxy: {
         '/api': {
           target: 'http://localhost:3000',

@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import HabitProgress from "../HabitProgress";
+import LifePanel from "../LifePanel";
 import { useLocalDay } from "../useLocalDay";
 import { habitDone, habitStep, habitTarget } from "../habits";
 import {
@@ -60,6 +61,10 @@ export default function Dashboard({ user }: { user: any }) {
   const [allTasks, setAllTasks] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [title, setTitle] = useState("");
+  const [taskDuration, setTaskDuration] = useState("15");
+  const [taskDue, setTaskDue] = useState("");
+  const [taskEnergy, setTaskEnergy] = useState("low");
+  const [taskFixed, setTaskFixed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string[]>([]);
@@ -69,7 +74,7 @@ export default function Dashboard({ user }: { user: any }) {
     const requests: Record<string, () => Promise<any>> = {
       events: () =>
         api.listAll("events", {
-          filter_gte_start_time: new Date(`${today}T00:00:00`).toISOString(),
+          filter_gt_end_time: new Date(`${today}T00:00:00`).toISOString(),
           filter_lt_start_time: new Date(
             `${addDays(today, 1)}T00:00:00`,
           ).toISOString(),
@@ -124,8 +129,19 @@ export default function Dashboard({ user }: { user: any }) {
     setBusy(true);
     setError("");
     try {
-      await api.create("priorities", { title: title.trim(), date: today });
+      await api.create("priorities", {
+        title: title.trim(),
+        date: today,
+        duration_minutes: Number(taskDuration),
+        due_date: taskDue || null,
+        energy: taskEnergy,
+        is_fixed: taskFixed,
+      });
       setTitle("");
+      setTaskDuration("15");
+      setTaskDue("");
+      setTaskEnergy("low");
+      setTaskFixed(false);
       panel.close();
       feedback.notify("Tugas ditambahkan");
       changed();
@@ -207,6 +223,7 @@ export default function Dashboard({ user }: { user: any }) {
           >
             <p className="muted">Satu langkah, satu hal baik hari ini.</p>
           </Section>
+          <LifePanel />
           <Section
             title="Agenda hari ini"
             action={
@@ -429,7 +446,7 @@ export default function Dashboard({ user }: { user: any }) {
               </div>
             )}
           </Section>
-          <Section title="Gerak hari ini">
+          <Section title="Program workout">
             {status("plans")}
             {!data.plans.loading && !data.plans.error && (
               <button
@@ -441,7 +458,7 @@ export default function Dashboard({ user }: { user: any }) {
                   <Icon name="fitness_center" />
                 </span>
                 <span className="copy">
-                  <strong>{plan?.name || "Hari untuk beristirahat"}</strong>
+                  <strong>{plan?.name || "Program & riwayat latihan"}</strong>
                   <p>
                     {plan
                       ? "Buka program latihanmu"
@@ -496,6 +513,46 @@ export default function Dashboard({ user }: { user: any }) {
               onChange={(e) => setTitle(e.target.value)}
             />
           </Field>
+          <details>
+            <summary>Durasi, tenggat & tenaga (opsional)</summary>
+            <div className="field-pair">
+              <Field label="Durasi tugas (menit)">
+                <input
+                  type="number"
+                  min="5"
+                  max="240"
+                  step="1"
+                  value={taskDuration}
+                  onChange={(e) => setTaskDuration(e.target.value)}
+                />
+              </Field>
+              <Field label="Tenggat tugas">
+                <input
+                  type="date"
+                  min={today}
+                  value={taskDue}
+                  onChange={(e) => setTaskDue(e.target.value)}
+                />
+              </Field>
+            </div>
+            <Field label="Tenaga yang diperlukan">
+              <select
+                value={taskEnergy}
+                onChange={(e) => setTaskEnergy(e.target.value)}
+              >
+                <option value="low">Ringan</option>
+                <option value="medium">Sedang</option>
+                <option value="high">Besar</option>
+              </select>
+            </Field>
+            <Field label="Jadwal tugas tetap">
+              <input
+                type="checkbox"
+                checked={taskFixed}
+                onChange={(e) => setTaskFixed(e.target.checked)}
+              />
+            </Field>
+          </details>
           <ErrorState message={error} />
           <Button type="submit" disabled={busy}>
             {busy ? "Menyimpan…" : "Simpan tugas"}

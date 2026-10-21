@@ -1,4 +1,5 @@
 import { test as base, expect, type Page } from "@playwright/test";
+import { DEFAULT_PROFILE, buildDailyPlan, shiftTimes } from "../../shared/life";
 type Write = { table: string; method: string; body: any };
 type Mock = {
   writes: Write[];
@@ -70,7 +71,62 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
           content: "Halo, ada yang bisa dibantu?",
         },
       ],
+      health_profiles: [],
+      shift_assignments: [],
+      wellness_logs: [],
+      daily_plan_states: [],
     },
+  };
+  const undo = new Map<string, any>();
+  const lifeContext = (date = "2026-10-17") => {
+    const profile = { ...DEFAULT_PROFILE, ...mock.tables.health_profiles[0] };
+    const logs = mock.tables.wellness_logs;
+    const meals = logs.filter((l) => l.date === date && l.kind === "meal");
+    const weights = logs.filter((l) => l.kind === "weight");
+    const plan = buildDailyPlan({
+      date,
+      timezone: "Asia/Jakarta",
+      profile,
+      shifts: mock.tables.shift_assignments,
+      events: mock.tables.events,
+      tasks: mock.tables.priorities,
+      workouts: mock.tables.workout_logs,
+      logs,
+      programs: mock.tables.workout_plans,
+    });
+    return {
+      date,
+      timezone: "Asia/Jakarta",
+      profile,
+      has_profile: !!mock.tables.health_profiles.length,
+      shifts: mock.tables.shift_assignments,
+      logs,
+      tasks: mock.tables.priorities,
+      plan: {
+        ...plan,
+        items: plan.items.map((i) => ({
+          ...i,
+          status:
+            mock.tables.daily_plan_states.find(
+              (s) => s.item_key === i.key && s.date === date,
+            )?.status || "planned",
+        })),
+      },
+      progress: {
+        meals: meals.length,
+        calories: meals.reduce((s, m) => s + Number(m.calories || 0), 0),
+        protein_g: meals.reduce((s, m) => s + Number(m.protein_g || 0), 0),
+        unestimated_meals: meals.filter((m) => m.calories == null).length,
+        weight_kg: weights.at(-1)?.weight_kg ?? profile.weight_kg,
+        weight_change: null,
+        sleep_hours: logs
+          .filter((l) => l.kind === "sleep" && l.date === date)
+          .at(-1)?.sleep_hours,
+        workouts_week: mock.tables.workout_logs.length,
+      },
+      weekly: [],
+      workouts: mock.tables.workout_logs,
+    };
   };
   await page.clock.setFixedTime(new Date("2026-10-17T05:00:00Z"));
   await page.addInitScript(
@@ -115,6 +171,68 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
         user: { id: "user", display_name: "Seva", email: "seva@example.test" },
       });
     if (url.pathname === "/api/ai-proxy") {
+      if (body.action === "life") {
+        if (body.op === "get") return json(lifeContext(body.params?.date));
+        mock.writes.push({ table: "life", method, body });
+        const params = body.params || {};
+        const snapshot = structuredClone(mock.tables);
+        if (body.op === "update_health_profile")
+          mock.tables.health_profiles = [
+            { ...mock.tables.health_profiles[0], ...params },
+          ];
+        if (body.op === "log_wellness") {
+          const row = {
+            ...params,
+            id: params.id || `health-${mock.writes.length}`,
+            logged_at: "2026-10-17T05:00:00Z",
+          };
+          const index = mock.tables.wellness_logs.findIndex(
+            (l) => l.id === params.id,
+          );
+          if (index >= 0) mock.tables.wellness_logs[index] = row;
+          else mock.tables.wellness_logs.push(row);
+        }
+        if (body.op === "save_shift_import" || body.op === "change_shift") {
+          for (const row of body.op === "change_shift"
+            ? [params]
+            : params.rows) {
+            mock.tables.shift_assignments =
+              mock.tables.shift_assignments.filter((s) => s.date !== row.date);
+            mock.tables.shift_assignments.push({
+              ...row,
+              ...shiftTimes(row.date, row.code, "Asia/Jakarta"),
+              id: `shift-${row.date}`,
+            });
+          }
+        }
+        if (body.op === "plan_state")
+          mock.tables.daily_plan_states.push({
+            date: params.date,
+            item_key: params.key,
+            status: params.status,
+          });
+        if (body.op === "undo_life_action") {
+          if (undo.has(params.action_id))
+            mock.tables = undo.get(params.action_id);
+          return json({ success: true });
+        }
+        const action_id = `life-action-${mock.writes.length}`;
+        undo.set(action_id, snapshot);
+        return json({
+          success: true,
+          message: "Catatan tersimpan.",
+          action_id,
+          can_undo: true,
+        });
+      }
+      if (body.action === "shift_preview")
+        return json({
+          draft: {
+            agent: body.agent,
+            rows: [{ date: `${body.month}-01`, code: "3" }],
+            warnings: ["Periksa hasil pembacaan foto."],
+          },
+        });
       mock.writes.push({ table: "ai", method, body });
       if (body.action === "search_notes")
         return json({ results: mock.tables.notes });

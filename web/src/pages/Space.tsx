@@ -7,6 +7,24 @@ const links: {
   icon: IconName;
 }[] = [
   {
+    to: "/health",
+    title: "Kesehatan",
+    description: "Makan, berat badan, tidur, dan perkembanganmu",
+    icon: "trending_up",
+  },
+  {
+    to: "/shifts",
+    title: "Jadwal shift",
+    description: "Impor foto dan atur pergantian shift",
+    icon: "calendar_month",
+  },
+  {
+    to: "/plan",
+    title: "Rencana hari ini",
+    description: "Aktivitas yang mengikuti waktu dan energimu",
+    icon: "schedule",
+  },
+  {
     to: "/habits",
     title: "Kebiasaan",
     description: "Langkah kecil untuk hari yang lebih baik",

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { useSearchParams } from "react-router-dom";
+import { ShiftReview } from "../ShiftImport";
 import {
   Button,
   changed,
@@ -8,7 +10,12 @@ import {
   IconButton,
   messageOf,
 } from "../ui";
-type Message = { role: string; content: string; image?: string };
+type Message = {
+  role: string;
+  content: string;
+  image?: string;
+  actions?: any[];
+};
 export default function AICopilot({ active = true }: { active?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -23,6 +30,12 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const stick = useRef(true);
+  const [search] = useSearchParams();
+  const [undone, setUndone] = useState<string[]>([]);
+  useEffect(() => {
+    const text = search.get("text");
+    if (text) setInput(text);
+  }, [search]);
   const loadHistory = async () => {
     setLoading(true);
     setHistoryFailed(false);
@@ -42,6 +55,16 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
         });
         setConvId(id);
         setMessages(history.data || []);
+        const ids = (history.data || []).flatMap((m: Message) =>
+          (m.actions || []).filter((a) => a.action_id).map((a) => a.action_id),
+        );
+        if (ids.length) {
+          const actions = await api.listAll("ai_action_logs", {
+            filter_in_id: ids.join(","),
+            filter_eq_is_undone: "true",
+          });
+          setUndone((actions.data || []).map((a: any) => a.id));
+        }
       }
     } catch (e) {
       setError(messageOf(e));
@@ -90,6 +113,7 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
         {
           role: "assistant",
           content: r.reply ?? r.message ?? "Permintaan selesai.",
+          actions: r.actions || [],
         },
       ]);
       setInput("");
@@ -152,7 +176,9 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
             <p className="muted">Ceritakan rencanamu atau catat sesuatu.</p>
             <div className="suggestions">
               {[
-                "Catat pengeluaran makan siang 25 ribu",
+                "Berat saya 47 kg, tinggi 165 cm. Bantu simpan profil saya.",
+                "Saya tidur 6 jam dan sedang capek. Catat energi saya 2 dari 5.",
+                "Tadi makan nasi ayam dan tempe 25 ribu. Catat makanan dan pengeluarannya.",
                 "Apa agenda saya hari ini?",
                 "Bantu susun prioritas hari ini",
               ].map((s) => (
@@ -178,6 +204,36 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
           >
             {m.image && <img src={m.image} alt="Gambar yang dikirim" />}
             {m.content}
+            {m.actions?.map((action, n) => (
+              <div className="chat-action card" key={action.action_id || n}>
+                <strong>{action.message}</strong>
+                {action.draft && <ShiftReview draft={action.draft} />}
+                {action.can_undo && (
+                  <Button
+                    variant="text"
+                    disabled={busy || undone.includes(action.action_id)}
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        await api.life("undo_life_action", {
+                          action_id: action.action_id,
+                        });
+                        setUndone((ids) => [...ids, action.action_id]);
+                        changed();
+                      } catch (e) {
+                        setError(messageOf(e));
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    {undone.includes(action.action_id)
+                      ? "Aksi dibatalkan"
+                      : "Batalkan aksi"}
+                  </Button>
+                )}
+              </div>
+            ))}
           </div>
         ))}
         {busy && (

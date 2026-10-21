@@ -206,7 +206,7 @@ test("workout program and session use schema-compatible payloads, isolate progra
   await expect(dialog).not.toBeVisible();
   expect(
     mock.writes.find((w) => w.table === "workout_plans")?.body.day_of_week,
-  ).toEqual([1]);
+  ).toEqual([]);
   await page.getByRole("button", { name: /Push A.*Catat latihan/ }).click();
   dialog = page.getByRole("dialog", { name: "Push A" });
   await dialog.getByLabel("Nama latihan (opsional)").fill("Bench Press");

@@ -24,11 +24,14 @@ beforeEach(() => {
     if (sql.includes('information_schema.columns')) return columns[params[0]].map(column_name => ({ column_name }));
     queries.push({ sql, params });
     if (sql.includes('SELECT role, content')) return aiHistory;
+    if (/FROM (shift_assignments|wellness_logs|daily_plan_states)/.test(sql)) return [];
+    if (/^SELECT \* FROM (events|priorities|workout_logs|workout_plans) WHERE user_id/.test(sql)) return [];
     return rows;
   };
   db.queryOne = async (sql, params) => {
     queries.push({ sql, params });
     if (sql.includes('SELECT timezone')) return { timezone: 'Asia/Jakarta' };
+    if (sql.includes('FROM health_profiles')) return null;
     return parentOwned ? { id: 'own-parent' } : null;
   };
   provider.callOpenRouter = async () => ({ candidates: [{ content: { parts: [{ text: 'Hello' }] } }], modelUsed: 'free-test' });
@@ -297,7 +300,7 @@ function component(file, api) {
     changed() {}, messageOf: error => error.message,
   };
   for (const name of ['Button','Field','Form','Icon','IconButton','LoadingState','Modal','Segments','Fab','EmptyState','ErrorState','Section']) ui[name] = function View() {};
-  const mod = browserModule(file, { react, 'react-router-dom': { useNavigate: () => () => {} }, '../ui': ui, '../habits': browserModule('habits.ts', {}), '../HabitProgress': { default: function View() {} }, '../useLocalDay': { useLocalDay: todayStr }, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
+  const mod = browserModule(file, { react, 'react-router-dom': { useNavigate: () => () => {}, useSearchParams: () => [new URLSearchParams()] }, '../ui': ui, '../habits': browserModule('habits.ts', {}), '../HabitProgress': { default: function View() {} }, '../../../shared/life': require('../shared/life'), '../useLocalDay': { useLocalDay: todayStr }, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
   function render() { cursor = 0; effects = []; tree = mod.default({}); return tree; }
   function find(predicate, value) {
     if (arguments.length === 1) value = tree;
@@ -320,7 +323,9 @@ test('Workout forms submit schema-compatible plan, log, and set payloads', async
   await ui.mount();
   ui.find(x => x.props.placeholder === 'Contoh: Push Day A').props.onChange({ target: { value: 'Push' } }); ui.render();
   await ui.find(x => x.props.onSubmit?.name === 'addPlan').props.onSubmit();
-  assert.deepEqual(JSON.parse(JSON.stringify(writes[0].row.day_of_week)), [1]);
+  assert.deepEqual(JSON.parse(JSON.stringify(writes[0].row.day_of_week)), []);
+  assert.equal(writes[0].row.schedule_mode, 'flexible');
+  assert.ok(writes[0].row.exercises.length > 0);
   ui.render();
   ui.find(x => x.props.className === 'workout-link').props.onClick(); ui.render();
   ui.find(x => x.props.placeholder === 'Contoh: Bench Press').props.onChange({ target: { value: 'Bench' } }); ui.render();

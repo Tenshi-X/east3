@@ -33,6 +33,8 @@ als pemanggil akhir `openrouter/free` (auto-router).
 - **Animasi 180–250 ms**: card lift, sheet slide-up, FAB rotate, progress fill, page transition.
 
 ## Halaman
+Panduan fitur shift, pencatatan kesehatan lewat chat, workout fleksibel, rencana harian, dan migrasi barunya tersedia di [docs/shift-wellness.md](docs/shift-wellness.md).
+
 - **Home**: Morning Brief (AI), timeline jadwal hari ini, kartu Income/Expense/Remaining, Workout hari ini, checklist Habit, prioritas (Quick Task).
 - **Calendar**: view Hari/Minggu/Bulan + input bahasa alami (mis. “Meeting besok jam 9”, "Gym tiap Senin Rabu Jumat") yang di-parse AI jadi event.
 - **AI**: chat dengan tool-calling AI (conversation, history, undo aksi).

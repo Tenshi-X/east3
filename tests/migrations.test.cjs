@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { runMigrations } = require('../scripts/migrate.cjs');
+const migrationNames = ['20261017_wallets_habit_templates.sql', '20261019_shift_wellness.sql'];
 
 function database({ applied = false, fail = false } = {}) {
   const queries = [];
@@ -8,7 +9,7 @@ function database({ applied = false, fail = false } = {}) {
   const pool = { connect: async () => ({
     query: async (sql, values) => {
       queries.push({ sql, values });
-      if (sql === 'SELECT name FROM public.schema_migrations') return { rows: applied ? [{ name: '20261017_wallets_habit_templates.sql' }] : [] };
+      if (sql === 'SELECT name FROM public.schema_migrations') return { rows: applied ? migrationNames.map(name => ({ name })) : [] };
       if (fail && sql.includes('CREATE TABLE IF NOT EXISTS wallets')) throw Object.assign(new Error('migration failed'), { code: '42501' });
       return { rows: [] };
     },
@@ -20,7 +21,7 @@ function database({ applied = false, fail = false } = {}) {
 test('pending migrations and ledger are committed together under a transaction lock', async () => {
   const db = database();
   const applied = await runMigrations(db.pool, undefined, () => {});
-  assert.deepEqual(applied, ['20261017_wallets_habit_templates.sql']);
+  assert.deepEqual(applied, migrationNames);
   assert.equal(db.queries[0].sql, 'BEGIN');
   assert.ok(db.queries.findIndex(q => q.sql.includes('pg_advisory_xact_lock')) < db.queries.findIndex(q => q.sql.includes('CREATE TABLE IF NOT EXISTS public.schema_migrations')));
   const migration = db.queries.find(q => q.sql.includes('CREATE TABLE IF NOT EXISTS wallets'));

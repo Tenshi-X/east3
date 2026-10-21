@@ -1,9 +1,9 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor } from "@capacitor/core";
 
-const TOKEN_KEY = 'east3_token';
-const USER_KEY = 'east3_user';
+const TOKEN_KEY = "east3_token";
+const USER_KEY = "east3_user";
 // Browsers use the deployment's /api routes; native builds need a public origin.
-const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -14,7 +14,7 @@ export function setToken(t: string | null) {
 }
 export function loadUser(): any {
   try {
-    return JSON.parse(localStorage.getItem(USER_KEY) ?? 'null');
+    return JSON.parse(localStorage.getItem(USER_KEY) ?? "null");
   } catch {
     return null;
   }
@@ -26,9 +26,13 @@ export function saveUser(u: any) {
 
 async function request(path: string, options: RequestInit = {}): Promise<any> {
   if (Capacitor.isNativePlatform() && !API_ORIGIN) {
-    throw new Error('VITE_API_URL harus diisi dengan URL Vercel sebelum build Android');
+    throw new Error(
+      "VITE_API_URL harus diisi dengan URL Vercel sebelum build Android",
+    );
   }
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -41,31 +45,37 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
     body = { error: text };
   }
 
-  if (res.status === 401 && !path.includes('/api/auth/')) {
+  if (res.status === 401 && !path.includes("/api/auth/")) {
     setToken(null);
     saveUser(null);
-    window.location.href = '/login';
-    throw new Error('Sesi berakhir. Silakan login kembali.');
+    window.location.href = "/login";
+    throw new Error("Sesi berakhir. Silakan login kembali.");
   }
   if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
   if (body?.error) throw new Error(body.error);
   return body;
 }
 
-async function authenticate(path: string, data: Record<string, unknown>): Promise<any> {
-  const result = await request(path, { method: 'POST', body: JSON.stringify(data) });
+async function authenticate(
+  path: string,
+  data: Record<string, unknown>,
+): Promise<any> {
+  const result = await request(path, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
   if (!result?.token || !result?.user) {
-    throw new Error('Respons autentikasi dari server tidak valid');
+    throw new Error("Respons autentikasi dari server tidak valid");
   }
   return result;
 }
 
 export const api = {
   register: (email: string, password: string, display_name?: string) =>
-    authenticate('/api/auth/register', { email, password, display_name }),
+    authenticate("/api/auth/register", { email, password, display_name }),
   login: (email: string, password: string) =>
-    authenticate('/api/auth/login', { email, password }),
-  me: () => request('/api/auth/me'),
+    authenticate("/api/auth/login", { email, password }),
+  me: () => request("/api/auth/me"),
 
   list: (table: string, params: Record<string, string> = {}) =>
     request(`/api/data/${table}?${new URLSearchParams(params).toString()}`),
@@ -73,42 +83,73 @@ export const api = {
     const data: any[] = [];
     const limit = 500;
     for (let offset = 0; ; offset += limit) {
-      const page = await api.list(table, { ...params, limit: String(limit), offset: String(offset) });
+      const page = await api.list(table, {
+        ...params,
+        limit: String(limit),
+        offset: String(offset),
+      });
       data.push(...page.data);
       if (!page.has_more) return { data };
     }
   },
   create: (table: string, data: any) =>
-    request(`/api/data/${table}`, { method: 'POST', body: JSON.stringify(data) }),
+    request(`/api/data/${table}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   upsert: (table: string, data: any, onConflict: string) =>
     request(`/api/data/${table}/upsert`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ row: data, on_conflict: onConflict }),
     }),
   update: (table: string, id: string, data: any) =>
-    request(`/api/data/${table}/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    request(`/api/data/${table}/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   remove: (table: string, id: string) =>
-    request(`/api/data/${table}/${id}`, { method: 'DELETE' }),
+    request(`/api/data/${table}/${id}`, { method: "DELETE" }),
   incrementHabit: (habit_id: string, date: string, delta: number) =>
-    request('/api/data/habit_logs/increment', {
-      method: 'POST', body: JSON.stringify({ habit_id, date, delta }),
+    request("/api/data/habit_logs/increment", {
+      method: "POST",
+      body: JSON.stringify({ habit_id, date, delta }),
     }),
 
   aiChat: (message: string, conversation_id: string, image?: string) =>
-    request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ message, conversation_id, image }) }),
+    request("/api/ai-proxy", {
+      method: "POST",
+      body: JSON.stringify({ message, conversation_id, image }),
+    }),
   morningBrief: (date: string) =>
-    request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ action: 'morning_brief', date }) }),
+    request("/api/ai-proxy", {
+      method: "POST",
+      body: JSON.stringify({ action: "morning_brief", date }),
+    }),
   semanticSearch: (query: string) =>
-    request('/api/ai-proxy', { method: 'POST', body: JSON.stringify({ action: 'search_notes', query }) }),
+    request("/api/ai-proxy", {
+      method: "POST",
+      body: JSON.stringify({ action: "search_notes", query }),
+    }),
+  life: (op: string, params: any = {}) =>
+    request("/api/ai-proxy", {
+      method: "POST",
+      body: JSON.stringify({ action: "life", op, params }),
+    }),
+  shiftPreview: (image: string, agent: string, month: string) =>
+    request("/api/ai-proxy", {
+      method: "POST",
+      body: JSON.stringify({ action: "shift_preview", image, agent, month }),
+    }),
 };
 
 export function monthRange(month: string) {
-  const [year, number] = month.split('-').map(Number);
+  const [year, number] = month.split("-").map(Number);
   const next = todayStr(new Date(year, number, 1));
   return {
     filter_gte_occurred_at: new Date(`${month}-01T00:00:00`).toISOString(),
     filter_lt_occurred_at: new Date(`${next}T00:00:00`).toISOString(),
-    order_by: 'occurred_at', order_dir: 'desc',
+    order_by: "occurred_at",
+    order_dir: "desc",
   };
 }
 
@@ -117,20 +158,24 @@ export function localDate(value: string): string {
 }
 
 export function todayStr(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() + days);
   return todayStr(d);
 }
 
 export function rupiah(n: number): string {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 export function timeOf(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }

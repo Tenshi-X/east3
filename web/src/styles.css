@@ -34,6 +34,182 @@
   font-synthesis: none;
   line-height: 1.5;
 }
+
+/* Shift-aware daily plan and health journal */
+.life-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.life-hero {
+  background: linear-gradient(145deg, var(--primary-soft), var(--surface));
+}
+.life-hero h2 {
+  font-size: 1.35rem;
+  line-height: 1.35;
+  margin: 4px 0 10px;
+}
+.eyebrow {
+  color: var(--primary);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+}
+.life-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.life-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.life-stats strong {
+  font-size: 1.15rem;
+}
+.life-stats span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.life-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.life-actions .btn {
+  min-height: 40px;
+  padding: 8px 12px;
+  max-width: 100%;
+  white-space: normal;
+}
+.life-notice {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.life-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.life-form-grid input {
+  width: 100%;
+  min-width: 0;
+}
+.plan-item {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.plan-kind {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--primary-soft);
+  color: var(--primary);
+  flex: 0 0 auto;
+}
+.plan-finished {
+  opacity: 0.7;
+}
+.plan-finished strong {
+  text-decoration: line-through;
+}
+.plan-item details,
+.shift-review details {
+  font-size: 0.9rem;
+}
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.shift-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.shift-review-list {
+  max-height: 430px;
+  overflow: auto;
+  padding: 4px;
+}
+.shift-review-list .field-pair {
+  margin-bottom: 8px;
+}
+.shift-badge {
+  min-width: 42px;
+  padding: 4px;
+  border: 2px solid;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.life-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.life-week > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+  padding: 10px 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.life-week span {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+.weight-chart {
+  margin: 0;
+}
+.weight-chart svg {
+  width: 100%;
+  height: 130px;
+}
+.chat-action {
+  margin-top: 12px;
+  white-space: normal;
+  max-width: 100%;
+}
+.chat-action .field-pair {
+  grid-template-columns: minmax(0, 1fr);
+}
+.life-reminder {
+  position: fixed;
+  z-index: 150;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(94vw, 440px);
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 8px 32px var(--shadow);
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 700px) {
+  .life-form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 :root[data-theme="light"] {
   color-scheme: light;
   --primary: #2158b5;

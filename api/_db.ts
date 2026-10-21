@@ -1,7 +1,7 @@
-import { Pool, types } from 'pg';
+import { Pool, types } from "pg";
 
 // DATE is a calendar date, not a timestamp in the server's timezone.
-types.setTypeParser(1082, value => value);
+types.setTypeParser(1082, (value) => value);
 
 // Global connection pool (reused across serverless invocations)
 let pool: Pool | null = null;
@@ -10,7 +10,7 @@ export function getPool(): Pool {
   if (!pool) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
-      throw new Error('DATABASE_URL not set');
+      throw new Error("DATABASE_URL not set");
     }
     pool = new Pool({
       connectionString,
@@ -23,13 +23,19 @@ export function getPool(): Pool {
   return pool;
 }
 
-export async function query<T = any>(text: string, params?: any[]): Promise<T[]> {
+export async function query<T = any>(
+  text: string,
+  params?: any[],
+): Promise<T[]> {
   const p = getPool();
   const res = await p.query(text, params);
   return res.rows as T[];
 }
 
-export async function queryOne<T = any>(text: string, params?: any[]): Promise<T | null> {
+export async function queryOne<T = any>(
+  text: string,
+  params?: any[],
+): Promise<T | null> {
   const rows = await query<T>(text, params);
   return rows[0] ?? null;
 }
@@ -37,4 +43,24 @@ export async function queryOne<T = any>(text: string, params?: any[]): Promise<T
 export async function execute(text: string, params?: any[]): Promise<void> {
   const p = getPool();
   await p.query(text, params);
+}
+
+export type SQL = (text: string, params?: any[]) => Promise<any[]>;
+export async function transaction<T>(
+  work: (sql: SQL) => Promise<T>,
+): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await work(
+      async (text, params) => (await client.query(text, params)).rows,
+    );
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

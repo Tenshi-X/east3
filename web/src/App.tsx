@@ -22,6 +22,10 @@ import Workout from "./pages/Workout";
 import Habits from "./pages/Habits";
 import Notes from "./pages/Notes";
 import Space from "./pages/Space";
+import Health from "./pages/Health";
+import Shifts from "./pages/Shifts";
+import LifePanel from "./LifePanel";
+import Reminders from "./Reminders";
 
 type ScreenConfig = {
   title: string;
@@ -43,6 +47,9 @@ const SCREENS: Record<string, ScreenConfig> = {
   "/workout": { title: "Workout", parent: "/space" },
   "/habits": { title: "Kebiasaan", parent: "/space" },
   "/notes": { title: "Catatan", parent: "/space" },
+  "/health": { title: "Kesehatan", parent: "/space" },
+  "/shifts": { title: "Jadwal shift", parent: "/calendar" },
+  "/plan": { title: "Rencana hari ini", parent: "/" },
 };
 const TABS = Object.entries(SCREENS).filter(([, s]) => s.label);
 
@@ -172,9 +179,19 @@ export default function App() {
     "/workout": <Workout />,
     "/habits": <Habits />,
     "/notes": <Notes />,
+    "/health": <Health />,
+    "/shifts": <Shifts />,
+    "/plan": (
+      <div className="screen-scroll">
+        <div className="content-width">
+          <LifePanel full />
+        </div>
+      </div>
+    ),
   };
   return (
     <FeedbackProvider>
+      <Reminders userId={user.id} />
       <div className={`app-frame ${keyboard ? "keyboard-open" : ""}`}>
         <header className="app-bar">
           {config.parent && (

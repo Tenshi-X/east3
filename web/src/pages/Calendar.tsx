@@ -1,6 +1,12 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, addDays, localDate, timeOf, todayStr } from "../api";
+import { api, addDays, todayStr } from "../api";
+import {
+  SHIFT_TYPES,
+  overlapsDay,
+  clockInZone,
+  localDay,
+} from "../../../shared/life";
 import {
   Button,
   changed,
@@ -32,6 +38,8 @@ export default function Calendar() {
   const panel = useCreatePanel("/calendar");
   const feedback = useFeedback();
   const [events, setEvents] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
+  const [timezone, setTimezone] = useState("Asia/Jakarta");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
@@ -42,6 +50,7 @@ export default function Calendar() {
   const [date, setDate] = useState(todayStr());
   const [start, setStart] = useState("09:00");
   const [end, setEnd] = useState("10:00");
+  const [endNextDay, setEndNextDay] = useState(false);
   const [color, setColor] = useState(COLORS[0].value);
   const [method, setMethod] = useState<"manual" | "ai">("manual");
   const [natural, setNatural] = useState("");
@@ -52,6 +61,13 @@ export default function Calendar() {
         order_dir: "asc",
       });
       setEvents(r.data || []);
+      const shiftResult = await api.listAll("shift_assignments", {
+        order_by: "date",
+        order_dir: "asc",
+      });
+      setShifts(shiftResult.data || []);
+      const context = await api.life("get");
+      if (context.timezone) setTimezone(context.timezone);
       setError("");
     } catch (e) {
       setError(messageOf(e));
@@ -68,7 +84,21 @@ export default function Calendar() {
     view === "month"
       ? Array.from({ length: 42 }, (_, i) => addDays(todayStr(gridStart), i))
       : Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const agenda = events.filter((e) => localDate(e.start_time) === selected);
+  const shiftEvents = shifts
+    .filter((s) => s.start_time)
+    .map((s) => ({
+      ...s,
+      id: `shift-${s.id}`,
+      title: `Shift ${s.code} · ${SHIFT_TYPES[s.code].label}`,
+      description: "Jadwal kerja",
+      isShift: true,
+    }));
+  const allEvents = [...events, ...shiftEvents];
+  const onDay = (e: any, day: string) =>
+    overlapsDay(e.start_time, e.end_time, day, timezone);
+  const agenda = allEvents
+    .filter((e) => onDay(e, selected))
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
   const move = (direction: number) => {
     if (view === "month") {
       const d = new Date(sel);
@@ -102,7 +132,7 @@ export default function Calendar() {
       } else {
         if (!title.trim()) throw new Error("Isi judul acara.");
         const from = new Date(`${date}T${start}:00`);
-        const to = new Date(`${date}T${end}:00`);
+        const to = new Date(`${addDays(date, endNextDay ? 1 : 0)}T${end}:00`);
         if (!Number.isFinite(from.getTime()) || to <= from)
           throw new Error("Waktu selesai harus setelah waktu mulai.");
         await api.create("events", {
@@ -113,6 +143,7 @@ export default function Calendar() {
         });
         setSelected(date);
         setTitle("");
+        setEndNextDay(false);
         feedback.notify("Acara ditambahkan");
       }
       panel.close();
@@ -235,7 +266,7 @@ export default function Calendar() {
                     onClick={() => setSelected(key)}
                   >
                     {d.getDate()}
-                    {events.some((e) => localDate(e.start_time) === key) && (
+                    {allEvents.some((e) => onDay(e, key)) && (
                       <span className="event-dot" />
                     )}
                   </button>
@@ -243,6 +274,9 @@ export default function Calendar() {
               })}
             </div>
           </div>
+          <Button variant="tonal" onClick={() => nav("/shifts")}>
+            Impor & kelola shift
+          </Button>
           <Button variant="text" onClick={() => setSelected(todayStr())}>
             Kembali ke hari ini
           </Button>
@@ -261,19 +295,35 @@ export default function Calendar() {
                 {agenda.map((e) => (
                   <div className="list-row" key={e.id}>
                     <span className="event-time">
-                      <strong>{timeOf(e.start_time)}</strong>
-                      <small>{timeOf(e.end_time)}</small>
+                      <strong>{clockInZone(e.start_time, timezone)}</strong>
+                      <small>{clockInZone(e.end_time, timezone)}</small>
                     </span>
                     <div className="copy">
                       <strong>{e.title}</strong>
                       {e.description && <p>{e.description}</p>}
+                      {localDay(e.start_time, timezone) < selected && (
+                        <p className="meta">
+                          Mulai {localDay(e.start_time, timezone)}
+                        </p>
+                      )}
+                      {localDay(e.end_time, timezone) > selected && (
+                        <p className="meta">
+                          Selesai {localDay(e.end_time, timezone)}
+                        </p>
+                      )}
                     </div>
-                    <IconButton
-                      icon="delete"
-                      label={`Hapus ${e.title}`}
-                      disabled={busy}
-                      onClick={() => void remove(e)}
-                    />
+                    {e.isShift ? (
+                      <Button variant="text" onClick={() => nav("/shifts")}>
+                        Kelola
+                      </Button>
+                    ) : (
+                      <IconButton
+                        icon="delete"
+                        label={`Hapus ${e.title}`}
+                        disabled={busy}
+                        onClick={() => void remove(e)}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -340,6 +390,13 @@ export default function Calendar() {
                   />
                 </Field>
               </div>
+              <Field label="Selesai keesokan hari">
+                <input
+                  type="checkbox"
+                  checked={endNextDay}
+                  onChange={(e) => setEndNextDay(e.target.checked)}
+                />
+              </Field>
               <fieldset>
                 <legend>Warna acara</legend>
                 <div className="swatches">

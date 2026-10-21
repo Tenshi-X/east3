@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, localDate, todayStr } from "../api";
+import { WORKOUT_TEMPLATES } from "../../../shared/life";
 import {
   Button,
   changed,
@@ -42,8 +43,9 @@ export default function Workout() {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"plans" | "history">("plans");
   const [name, setName] = useState("");
-  const [split, setSplit] = useState("push");
+  const [split, setSplit] = useState("full_body");
   const [day, setDay] = useState("1");
+  const [scheduleMode, setScheduleMode] = useState("flexible");
   const [selected, setSelected] = useState<any>(null);
   const [exercise, setExercise] = useState("");
   const [reps, setReps] = useState("10");
@@ -87,7 +89,9 @@ export default function Workout() {
       await api.create("workout_plans", {
         name: name.trim(),
         split_type: split,
-        day_of_week: [Number(day)],
+        day_of_week: scheduleMode === "weekly" ? [Number(day)] : [],
+        schedule_mode: scheduleMode,
+        exercises: WORKOUT_TEMPLATES[0].exercises,
       });
       setName("");
       panel.close();
@@ -179,6 +183,20 @@ export default function Workout() {
             ]}
           />
           <ErrorState message={error} onRetry={() => void load()} />
+          <div className="card life-stack">
+            <h2>Latihan mengikuti shift</h2>
+            <p className="muted">
+              Rencana harian memilih sesi di antara kerja, tidur, dan agenda.
+              Catatan latihan memberi jeda pemulihan sebelum sesi berikutnya.
+            </p>
+            <Button variant="tonal" onClick={() => nav("/plan")}>
+              Lihat latihan & waktu yang disarankan
+            </Button>
+            <p className="meta">
+              Mulai dengan gerakan ringan. Tambah repetisi atau beban sedikit
+              demi sedikit saat gerakan terasa nyaman.
+            </p>
+          </div>
           {loading ? (
             <LoadingState />
           ) : tab === "plans" ? (
@@ -201,10 +219,17 @@ export default function Workout() {
                         <strong>{p.name}</strong>
                         <p>
                           {SPLITS[p.split_type] || p.split_type} ·{" "}
-                          {(p.day_of_week || [])
-                            .map((d: number) => DAYS[d])
-                            .join(", ")}
+                          {p.schedule_mode === "flexible"
+                            ? "Mengikuti shift & pemulihan"
+                            : (p.day_of_week || [])
+                                .map((d: number) => DAYS[d])
+                                .join(", ")}
                         </p>
+                        {p.exercises?.length > 0 && (
+                          <p className="meta">
+                            {p.exercises.length} gerakan siap dipakai
+                          </p>
+                        )}
                         <p className="action-copy">Catat latihan</p>
                       </span>
                     </button>
@@ -305,15 +330,26 @@ export default function Workout() {
               ))}
             </select>
           </Field>
-          <Field label="Hari latihan">
-            <select value={day} onChange={(e) => setDay(e.target.value)}>
-              {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-                <option key={d} value={d}>
-                  {DAYS[d]}
-                </option>
-              ))}
+          <Field label="Pengaturan jadwal">
+            <select
+              value={scheduleMode}
+              onChange={(e) => setScheduleMode(e.target.value)}
+            >
+              <option value="flexible">Ikuti shift & pemulihan</option>
+              <option value="weekly">Hari tetap setiap minggu</option>
             </select>
           </Field>
+          {scheduleMode === "weekly" && (
+            <Field label="Hari latihan">
+              <select value={day} onChange={(e) => setDay(e.target.value)}>
+                {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                  <option key={d} value={d}>
+                    {DAYS[d]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <ErrorState message={formError} />
           <Button type="submit" disabled={busy}>
             {busy ? "Menyimpan…" : "Simpan program"}
@@ -331,6 +367,40 @@ export default function Workout() {
           <p className="muted">
             Catat sesi hari ini. Isian hanya berlaku untuk program ini.
           </p>
+          {!!selected?.exercises?.length && (
+            <div className="card">
+              <h3>Panduan sesi</h3>
+              <ul>
+                {selected.exercises.map((e: any) => (
+                  <li key={e.name}>
+                    {e.name}: {e.defaultSets} × {e.defaultReps} repetisi
+                  </li>
+                ))}
+              </ul>
+              <p className="meta">
+                Untuk catatan satu gerakan, pilih nama di bawah. Sesi tanpa
+                rincian set tetap tercatat sebagai aktivitas.
+              </p>
+              <div className="life-actions">
+                {selected.exercises.map((e: any) => (
+                  <Button
+                    key={e.name}
+                    variant="tonal"
+                    onClick={() => {
+                      setExercise(e.name);
+                      setReps(String(e.defaultReps));
+                      const previous = [...sets]
+                        .reverse()
+                        .find((s) => s.exercise_name === e.name);
+                      setWeight(String(previous?.weight ?? 0));
+                    }}
+                  >
+                    Pakai {e.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           <Field label="Nama latihan (opsional)">
             <input
               autoFocus
