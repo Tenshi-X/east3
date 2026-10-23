@@ -37,6 +37,7 @@ export function HealthProfile({
   open?: boolean;
 }) {
   const [values, setValues] = useState<any>(profile);
+  const [expanded, setExpanded] = useState(open);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -65,7 +66,11 @@ export function HealthProfile({
     }
   };
   return (
-    <details className="card life-stack" open={open || undefined}>
+    <details
+      className="card life-stack"
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
       <summary>Profil & kebiasaan pribadi</summary>
       <p className="muted">
         Cukup atur sekali. Kamu juga bisa menceritakannya lewat chat.

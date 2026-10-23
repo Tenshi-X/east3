@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { icons } from "./icons";
+import { invalidateData } from "./api";
 export type IconName = keyof typeof icons;
 export function Icon({ name }: { name: IconName }) {
   return (
@@ -333,18 +334,41 @@ export function Form({
 export const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : "Terjadi kesalahan. Coba lagi.";
 export function changed() {
+  invalidateData();
   window.dispatchEvent(new Event("atlas:data"));
 }
 export function usePageLoad(path: string, load: () => void | Promise<void>) {
   const loc = useLocation();
   useEffect(() => {
-    if (loc.pathname === path) void load();
-  }, [loc.pathname, path, load]);
-  useEffect(() => {
-    const refresh = () => {
-      void load();
+    // Visited pages stay mounted to preserve their UI, but only the visible page
+    // refreshes. Returning to a hidden page fetches its current data then.
+    if (loc.pathname !== path) return;
+    let active = true;
+    let running = false;
+    let queued = false;
+    const refresh = async () => {
+      if (running) {
+        queued = true;
+        return;
+      }
+      running = true;
+      try {
+        do {
+          queued = false;
+          await load();
+        } while (active && queued);
+      } finally {
+        running = false;
+      }
     };
-    window.addEventListener("atlas:data", refresh);
-    return () => window.removeEventListener("atlas:data", refresh);
-  }, [load]);
+    const onChange = () => {
+      void refresh();
+    };
+    window.addEventListener("atlas:data", onChange);
+    void refresh();
+    return () => {
+      active = false;
+      window.removeEventListener("atlas:data", onChange);
+    };
+  }, [loc.pathname, path, load]);
 }

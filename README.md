@@ -41,6 +41,17 @@ Panduan fitur shift, pencatatan kesehatan lewat chat, workout fleksibel, rencana
 - **Finance**: tambah cepat (<10 detik), kategori, ringkasan bulanan, cashflow chart 7 hari, indikator budget.
 - **Ruang Saya**: akses Workout / Kebiasaan / Catatan. **Profil** dibuka dari avatar untuk informasi akun dan keluar.
 
+## Performa request
+
+- Backend dipatok ke region Vercel Singapore (`sin1`) melalui `vercel.json`. Pastikan `DATABASE_URL` produksi juga mengarah ke Neon Singapore sebelum deploy; konfigurasi lokal memakai `ap-southeast-1`.
+- `GET /api/data/dashboard?date=YYYY-MM-DD` mengambil tujuh kartu beranda dengan satu pemeriksaan pengguna. Setiap kartu tetap memiliki status error sendiri; keuangan memakai agregasi total bulanan di PostgreSQL. Batas hari/bulan mengikuti timezone profil, termasuk acara lintas tengah malam.
+- Request baca identik berbagi proses dan cache memori selama 15 detik. Cache dipisahkan berdasarkan token dan dibersihkan ketika akun berganti, data ditulis, atau aplikasi mengirim event perubahan. Data pengguna tidak dicache di CDN.
+- Halaman tersembunyi mempertahankan tampilan tetapi mengambil ulang data saat dibuka. Kalender mengambil acara, shift, dan profil secara paralel.
+- Response API Express menyertakan `Server-Timing: app;dur=...` untuk membandingkan waktu aplikasi server dengan waktu request di browser. Durasi ini tidak mencakup perjalanan jaringan atau startup sebelum Express dijalankan.
+- Validasi: `npm test`, `npm run build`, `npm run build --prefix web`, dan `npm run test:e2e --prefix web`. Tes performa memeriksa request beranda, invalidasi cache, refresh halaman tersembunyi, dan rollback centang tugas.
+
+Perubahan region/backend baru berlaku setelah redeploy. APK menggunakan aset frontend yang dibundel, sehingga perubahan frontend memerlukan build APK baru; PWA memakai build web terbaru.
+
 ## Backend & Database
 Lihat bagian selanjutnya dari file ini (east3 legacy docs) untuk:
 - Neon schema di `db/schema.sql`

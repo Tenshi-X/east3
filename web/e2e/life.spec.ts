@@ -13,7 +13,9 @@ test("Seva schedule is previewed, corrected, and only saved after review", async
     page.getByRole("heading", { name: "Periksa jadwal Seva" }),
   ).toBeVisible();
   expect(mock.writes.filter((w) => w.table === "life")).toHaveLength(0);
-  await page.getByLabel("Shift 2026-10-23", { exact: true }).selectOption("1");
+  await page
+    .getByRole("combobox", { name: "Shift 2026-10-23", exact: true })
+    .selectOption("1");
   await page
     .getByRole("button", { name: "Simpan jadwal yang diperiksa" })
     .click();

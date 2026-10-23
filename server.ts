@@ -5,6 +5,7 @@ import cors from 'cors';
 import authRouter from './api/auth-express';
 import dataRouter from './api/data-express';
 import aiProxyRouter from './api/ai-proxy-express';
+import { apiTiming } from './api/_timing';
 
 // ─── Load local `.env` for development (dependency-free) ─────────────────────
 // Netlify/Vercel inject environment variables themselves in production; this only
@@ -28,7 +29,8 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({ exposedHeaders: ["Server-Timing"] }));
+app.use("/api", apiTiming);
 app.use(express.json({ limit: '5mb' }));
 
 app.get('/', (_req, res) => {

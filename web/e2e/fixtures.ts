@@ -192,6 +192,27 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
       });
     if (mock.fail.has(table) || mock.fail.has(url.pathname))
       return json({ error: "Layanan sedang tidak tersedia" }, 503);
+    if (url.pathname === "/api/data/dashboard") {
+      const sources: Record<string, string> = {
+        events: "events",
+        tasks: "priorities",
+        habits: "habits",
+        logs: "habit_logs",
+        brief: "morning_briefs",
+        tx: "transactions",
+        plans: "workout_plans",
+      };
+      return json({
+        resources: Object.fromEntries(
+          Object.entries(sources).map(([key, source]) => [
+            key,
+            mock.fail.has(source)
+              ? { data: [], error: "Layanan sedang tidak tersedia" }
+              : { data: mock.tables[source] || [], error: "" },
+          ]),
+        ),
+      });
+    }
     if (url.pathname === "/api/auth/me")
       return json({
         user: { id: "user", display_name: "Seva", email: "seva@example.test" },

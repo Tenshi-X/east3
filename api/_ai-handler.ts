@@ -37,12 +37,8 @@ async function processAIRequest(
   // One shared deadline across all chat/tool rounds.
   const deadline = Date.now() + 55_000;
 
-  // Get user profile for timezone
-  const profile = await queryOne<{ timezone: string }>(
-    `SELECT timezone FROM users WHERE id = $1`,
-    [userId],
-  );
-  const timezone = profile?.timezone ?? "Asia/Jakarta";
+  // requireUser already fetched the profile; avoid another database round trip.
+  const timezone = user.timezone ?? "Asia/Jakarta";
   let systemPrompt = buildSystemPrompt(timezone);
 
   if (action === "life") {

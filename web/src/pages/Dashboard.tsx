@@ -7,9 +7,8 @@ import { useLocalDay } from "../useLocalDay";
 import { habitDone, habitStep, habitTarget } from "../habits";
 import {
   api,
-  addDays,
+  invalidateData,
   localDate,
-  monthRange,
   rupiah,
   timeOf,
   todayStr,
@@ -72,45 +71,37 @@ export default function Dashboard({ user }: { user: any }) {
   const [briefBusy, setBriefBusy] = useState(false);
   const today = useLocalDay();
   const load = useCallback(async () => {
-    const requests: Record<string, () => Promise<any>> = {
-      events: () =>
-        api.listAll("events", {
-          filter_gt_end_time: new Date(`${today}T00:00:00`).toISOString(),
-          filter_lt_start_time: new Date(
-            `${addDays(today, 1)}T00:00:00`,
-          ).toISOString(),
-          order_by: "start_time",
-          order_dir: "asc",
-        }),
-      tasks: () =>
-        api.list("priorities", {
-          filter_eq_date: today,
-          order_by: "created_at",
-          order_dir: "asc",
-        }),
-      habits: () => api.list("habits", { filter_eq_is_active: "true" }),
-      logs: () => api.list("habit_logs", { filter_eq_date: today }),
-      brief: () =>
-        api.list("morning_briefs", { filter_eq_date: today, limit: "1" }),
-      tx: () => api.listAll("transactions", monthRange(today.slice(0, 7))),
-      plans: () => api.list("workout_plans", {}),
-    };
-    await Promise.allSettled(
-      Object.entries(requests).map(async ([key, request]) => {
-        try {
-          const r = await request();
-          setData((d) => ({
-            ...d,
-            [key]: { data: r.data || [], error: "", loading: false },
-          }));
-        } catch (e) {
-          setData((d) => ({
-            ...d,
-            [key]: { ...d[key], error: messageOf(e), loading: false },
-          }));
-        }
-      }),
-    );
+    try {
+      const result = await api.dashboard(today);
+      setData((previous) =>
+        Object.fromEntries(
+          Object.entries(previous).map(([key, resource]) => {
+            const next = result.resources?.[key];
+            return [
+              key,
+              {
+                data: next?.error
+                  ? resource.data
+                  : (next?.data ?? resource.data),
+                error:
+                  next?.error ||
+                  (!next ? "Data belum dapat dimuat. Coba lagi." : ""),
+                loading: false,
+              },
+            ];
+          }),
+        ),
+      );
+    } catch (error) {
+      setData((previous) =>
+        Object.fromEntries(
+          Object.entries(previous).map(([key, resource]) => [
+            key,
+            { ...resource, error: messageOf(error), loading: false },
+          ]),
+        ),
+      );
+    }
   }, [today]);
   usePageLoad("/", load);
   const mutate = async (id: string, action: () => Promise<unknown>) => {
@@ -159,9 +150,25 @@ export default function Dashboard({ user }: { user: any }) {
         label={`${p.is_done ? "Batalkan" : "Selesaikan"} ${p.title}`}
         disabled={pending.includes(p.id)}
         onClick={() =>
-          void mutate(p.id, () =>
-            api.update("priorities", p.id, { is_done: !p.is_done }),
-          )
+          void mutate(p.id, async () => {
+            const patch = (isDone: boolean) =>
+              setData((current) => ({
+                ...current,
+                tasks: {
+                  ...current.tasks,
+                  data: current.tasks.data.map((task) =>
+                    task.id === p.id ? { ...task, is_done: isDone } : task,
+                  ),
+                },
+              }));
+            patch(!p.is_done);
+            try {
+              await api.update("priorities", p.id, { is_done: !p.is_done });
+            } catch (error) {
+              patch(p.is_done);
+              throw error;
+            }
+          })
         }
       />
       <div className="copy">
@@ -182,7 +189,13 @@ export default function Dashboard({ user }: { user: any }) {
     data[key].loading ? (
       <LoadingState />
     ) : data[key].error ? (
-      <ErrorState message={data[key].error} onRetry={() => void load()} />
+      <ErrorState
+        message={data[key].error}
+        onRetry={() => {
+          invalidateData();
+          void load();
+        }}
+      />
     ) : null;
   const tasks = data.tasks.data;
   const events = data.events.data;

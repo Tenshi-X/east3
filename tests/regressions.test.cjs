@@ -271,6 +271,7 @@ test('client pagination includes transactions beyond 1,000 rows and uses the And
   let calls = 0;
   const mod = browserModule('api.ts', {
     '@capacitor/core': { Capacitor: { isNativePlatform: () => true } },
+    './readCache': browserModule('readCache.ts', {}),
     globals: { localStorage: { getItem: () => null }, fetch: async (url) => {
       assert.ok(url.startsWith('https://east3.vercel.app/api/data/transactions?'));
       const offset = Number(new URL(url).searchParams.get('offset'));

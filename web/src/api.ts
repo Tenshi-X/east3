@@ -1,4 +1,10 @@
 import { Capacitor } from "@capacitor/core";
+import { createReadCache } from "./readCache";
+
+const reads = createReadCache();
+export function invalidateData() {
+  reads.clear();
+}
 
 const TOKEN_KEY = "east3_token";
 const USER_KEY = "east3_user";
@@ -9,6 +15,7 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 export function setToken(t: string | null) {
+  if (t !== getToken()) invalidateData();
   if (t) localStorage.setItem(TOKEN_KEY, t);
   else localStorage.removeItem(TOKEN_KEY);
 }
@@ -24,7 +31,31 @@ export function saveUser(u: any) {
   else localStorage.removeItem(USER_KEY);
 }
 
-async function request(path: string, options: RequestInit = {}): Promise<any> {
+async function request(
+  path: string,
+  options: RequestInit = {},
+  readOnly = false,
+): Promise<any> {
+  const mutation = (options.method ?? "GET") !== "GET" && !readOnly;
+  if (mutation) invalidateData();
+  try {
+    return await sendRequest(path, options);
+  } finally {
+    // Also invalidate on failure: a write may have reached the server even if its
+    // response was lost. Never keep a snapshot fetched while a write was pending.
+    if (mutation) invalidateData();
+  }
+}
+
+function readRequest(path: string, options: RequestInit = {}): Promise<any> {
+  const key = JSON.stringify([getToken(), path, options.body ?? null]);
+  return reads.read(key, () => request(path, options, true));
+}
+
+async function sendRequest(
+  path: string,
+  options: RequestInit = {},
+): Promise<any> {
   if (Capacitor.isNativePlatform() && !API_ORIGIN) {
     throw new Error(
       "VITE_API_URL harus diisi dengan URL Vercel sebelum build Android",
@@ -75,10 +106,12 @@ export const api = {
     authenticate("/api/auth/register", { email, password, display_name }),
   login: (email: string, password: string) =>
     authenticate("/api/auth/login", { email, password }),
-  me: () => request("/api/auth/me"),
+  me: () => readRequest("/api/auth/me"),
+  dashboard: (date: string) =>
+    readRequest(`/api/data/dashboard?date=${encodeURIComponent(date)}`),
 
   list: (table: string, params: Record<string, string> = {}) =>
-    request(`/api/data/${table}?${new URLSearchParams(params).toString()}`),
+    readRequest(`/api/data/${table}?${new URLSearchParams(params).toString()}`),
   listAll: async (table: string, params: Record<string, string> = {}) => {
     const data: any[] = [];
     const limit = 500;
@@ -131,7 +164,7 @@ export const api = {
       body: JSON.stringify({ action: "search_notes", query }),
     }),
   life: (op: string, params: any = {}) =>
-    request("/api/ai-proxy", {
+    (op === "get" ? readRequest : request)("/api/ai-proxy", {
       method: "POST",
       body: JSON.stringify({ action: "life", op, params }),
     }),

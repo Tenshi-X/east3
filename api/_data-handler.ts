@@ -1,5 +1,7 @@
 import { query, queryOne } from "./_db";
 import { requireUser } from "./_auth";
+import { getDashboard } from "./_dashboard";
+import { validDay } from "../shared/life";
 
 const TABLES = new Set([
   "events",
@@ -117,6 +119,11 @@ export async function handleDataRequest(
     const { user, error } = await requireUser(req);
     if (!user || error)
       return res.status(401).json({ error: error ?? "Unauthorized" });
+    if (table === "dashboard" && req.method === "GET" && !id) {
+      const date = req.query?.date;
+      if (!validDay(date)) return res.status(400).json({ error: "Tanggal tidak valid." });
+      return res.json({ resources: await getDashboard(user.id, user.timezone ?? "Asia/Jakarta", date) });
+    }
     if (!TABLES.has(table))
       return res.status(400).json({ error: "Invalid table" });
     const method = req.method ?? "GET";

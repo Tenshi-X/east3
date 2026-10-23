@@ -56,18 +56,17 @@ export default function Calendar() {
   const [natural, setNatural] = useState("");
   const load = useCallback(async () => {
     try {
-      const r = await api.listAll("events", {
-        order_by: "start_time",
-        order_dir: "asc",
-      });
+      const [r, shiftResult, profile] = await Promise.all([
+        api.listAll("events", { order_by: "start_time", order_dir: "asc" }),
+        api.listAll("shift_assignments", {
+          order_by: "date",
+          order_dir: "asc",
+        }),
+        api.me(),
+      ]);
       setEvents(r.data || []);
-      const shiftResult = await api.listAll("shift_assignments", {
-        order_by: "date",
-        order_dir: "asc",
-      });
       setShifts(shiftResult.data || []);
-      const context = await api.life("get");
-      if (context.timezone) setTimezone(context.timezone);
+      if (profile.user?.timezone) setTimezone(profile.user.timezone);
       setError("");
     } catch (e) {
       setError(messageOf(e));
