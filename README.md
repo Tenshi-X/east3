@@ -255,3 +255,35 @@ npm run test:android --prefix web
 
 Pemeriksaan memakai API tiruan, hanya memilih emulator, dan memulihkan sesi emulator
 setelah selesai. Bukti tangkapan layar berada di `web/test-results/`.
+
+## Optimasi AI gratis
+
+Chat tetap memakai OpenRouter, tanpa provider atau model berbayar. Katalog model
+memverifikasi harga input dan output nol, keluaran teks, kapasitas konteks, serta
+kemampuan tools/gambar sesuai permintaan. Entri `OPENROUTER_FALLBACK_MODELS` hanya
+mengubah prioritas; model berbayar atau tidak terverifikasi diabaikan. Setiap
+request juga memakai `provider.max_price` nol untuk input, output, request, dan
+gambar. `require_parameters` memastikan provider mendukung parameter yang diminta.
+
+Maksimal dua model kompatibel dicoba sebelum `openrouter/free`, yang selalu
+menjadi cadangan terakhir. Jika katalog gagal diambil, langsung gunakan router
+gratis. Timeout per percobaan 18 detik; seluruh putaran chat berbagi deadline
+55 detik sejak handler menerima permintaan terautentikasi. Katalog memiliki
+timeout 3,5 detik, cache satu jam, dan refresh paralel digabung. Model yang gagal
+memiliki cooldown; 429 menghormati `Retry-After`. Kuota harian yang dilaporkan
+provider menghentikan fallback dan ditampilkan kepada pengguna.
+
+Riwayat yang dikirim dibatasi 12 pesan/16.000 karakter; pesan lama yang panjang
+diberi penanda pemotongan. Konteks awal menghapus metadata database dan membatasi
+jumlah catatan serta ukuran sekitar 12.000 karakter. ID dan timestamp dipertahankan,
+dan jumlah data yang tidak dikirim dicantumkan. Data lengkap tetap tersimpan di
+database; AI dapat memintanya lewat `get_life_context`. Tidak ada panggilan AI
+tambahan untuk meringkas riwayat. Batas keluaran normal 2.048 token untuk chat
+dengan tools, 1.024 tanpa tools, 512 untuk brief, dan 4.096 untuk ekstraksi shift.
+Respons kosong, terpotong, nama tool asing, atau argumen JSON rusak tidak dieksekusi.
+
+Pengujian `npm test` mencakup routing, biaya nol, tools, vision, fallback, timeout,
+kuota, konteks, serta alur chat dan pencatatan dengan provider/database tiruan.
+Pengujian ini tidak mengukur kualitas jawaban atau latensi provider produksi.
+Perubahan backend memerlukan deployment baru agar berlaku pada PWA/APK yang sudah
+terpasang; tidak memerlukan perubahan schema atau APK baru.

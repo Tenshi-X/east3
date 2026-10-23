@@ -369,3 +369,23 @@ test('AI page restores persisted messages when reopened', async () => {
   assert.equal(filters.order_dir, 'asc');
   assert.ok(ui.find(x => x.props.className === 'bubble assistant' && JSON.stringify(x.props.children).includes('Saved answer')));
 });
+
+test('AI exposes daily quota errors without persisting a successful reply', async t => {
+  t.mock.method(console, 'error', () => {});
+  const { AIProviderError } = require('../api/_openrouter');
+  provider.callOpenRouter = async () => { throw new AIProviderError('Kuota harian AI gratis sudah habis.', 429); };
+  const res = response();
+  await handleAIRequest({ headers: {}, body: { message: 'hello', conversation_id: 'own' } }, res);
+  assert.equal(res.statusCode, 429);
+  assert.match(res.body.error, /Kuota harian/);
+  assert.ok(!queries.some(q => q.sql.includes('INSERT INTO ai_messages')));
+});
+
+test('oversized chat messages are rejected before any provider call', async () => {
+  let called = false;
+  provider.callOpenRouter = async () => { called = true; };
+  const res = response();
+  await handleAIRequest({ headers: {}, body: { message: 'x'.repeat(20001), conversation_id: 'own' } }, res);
+  assert.equal(res.statusCode, 400);
+  assert.equal(called, false);
+});
