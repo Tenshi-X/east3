@@ -11,6 +11,7 @@ import {
 } from "./ui";
 import { clockInZone, localDay, SHIFT_TYPES } from "../../shared/life";
 import { useLocalDay } from "./useLocalDay";
+import CardCarousel from "./CardCarousel";
 
 export function useLife(path: string, date?: string) {
   const [data, setData] = useState<any>(null);
@@ -72,7 +73,7 @@ export function PlanList({
             !["done", "skipped"].includes(i.status) &&
             Date.parse(i.end_time) > now,
         )
-        .slice(0, 3)
+        .slice(0, 1)
     : data.plan.items;
   const time = (v: string) =>
     `${clockInZone(v, data.timezone)}${localDay(v, data.timezone) > data.date ? " besok" : localDay(v, data.timezone) < data.date ? " kemarin" : ""}`;
@@ -218,71 +219,85 @@ export default function LifePanel({ full = false }: { full?: boolean }) {
       Date.parse(s.end_time) > Date.now(),
   );
   const todayShift = data.shifts.find((s: any) => s.date === data.date);
-  return (
-    <section className="life-stack" aria-label="Rencana sesuai shift">
-      <div className="card life-hero">
-        <p className="eyebrow">SEKARANG & BERIKUTNYA</p>
-        <h2>
-          {activeShift
-            ? `Sedang shift ${SHIFT_TYPES[activeShift.code]?.label.toLowerCase()}`
-            : todayShift
-              ? todayShift.code === "L"
-                ? "Hari libur, beri ruang untuk diri sendiri"
-                : `Hari ini shift ${SHIFT_TYPES[todayShift.code]?.label.toLowerCase()}`
-              : "Mulai dari ritmemu hari ini"}
-        </h2>
-        {todayShift?.start_time && (
-          <p>
-            {clockInZone(todayShift.start_time, data.timezone)}–
-            {clockInZone(todayShift.end_time, data.timezone)}
-            {localDay(todayShift.end_time, data.timezone) > data.date
-              ? " besok"
-              : ""}
-          </p>
-        )}
-        {!data.has_profile && (
-          <p className="meta">
-            Atur profil sekali lewat chat atau Kesehatan agar rencana sesuai
-            kebiasaanmu.
-          </p>
-        )}
-        {data.plan.reasons.map((r: string) => (
+  const hero = (
+    <div className="card life-hero">
+      <p className="eyebrow">SEKARANG & BERIKUTNYA</p>
+      <h2>
+        {activeShift
+          ? `Sedang shift ${SHIFT_TYPES[activeShift.code]?.label.toLowerCase()}`
+          : todayShift
+            ? todayShift.code === "L"
+              ? "Hari libur, beri ruang untuk diri sendiri"
+              : `Hari ini shift ${SHIFT_TYPES[todayShift.code]?.label.toLowerCase()}`
+            : "Mulai dari ritmemu hari ini"}
+      </h2>
+      {todayShift?.start_time && (
+        <p>
+          {clockInZone(todayShift.start_time, data.timezone)}–
+          {clockInZone(todayShift.end_time, data.timezone)}
+          {localDay(todayShift.end_time, data.timezone) > data.date
+            ? " besok"
+            : ""}
+        </p>
+      )}
+      {!data.has_profile && (
+        <p className="meta">
+          Atur profil sekali lewat chat atau Kesehatan agar rencana sesuai
+          kebiasaanmu.
+        </p>
+      )}
+      {full &&
+        data.plan.reasons.map((r: string) => (
           <p className="meta" key={r}>
             {r}
           </p>
         ))}
-        <div className="life-stats">
-          <div>
-            <strong>
-              {data.progress.meals}/{data.profile.meals_target}
-            </strong>
-            <span>makan tercatat</span>
-          </div>
-          <div>
-            <strong>
-              {data.progress.weight_kg ?? "—"} <small>kg</small>
-            </strong>
-            <span>berat terakhir</span>
-          </div>
-          <div>
-            <strong>
-              {data.progress.workouts_week}/{data.profile.workout_weekly}
-            </strong>
-            <span>latihan / 7 hari</span>
-          </div>
+      <div className="life-stats">
+        <div>
+          <strong>
+            {data.progress.meals}/{data.profile.meals_target}
+          </strong>
+          <span>makan tercatat</span>
         </div>
-        <div className="life-actions">
-          <Button variant="tonal" onClick={() => nav("/health")}>
-            Catat kesehatan
-          </Button>
-          <Button
-            variant="text"
-            onClick={() => nav(full ? "/shifts" : "/plan")}
-          >
-            {full ? "Kelola shift" : "Lihat rencana hari ini"}
-          </Button>
+        <div>
+          <strong>
+            {data.progress.weight_kg ?? "—"} <small>kg</small>
+          </strong>
+          <span>berat terakhir</span>
+        </div>
+        <div>
+          <strong>
+            {data.progress.workouts_week}/{data.profile.workout_weekly}
+          </strong>
+          <span>latihan / 7 hari</span>
         </div>
       </div>
+      <div className="life-actions">
+        <Button variant="tonal" onClick={() => nav("/health")}>
+          Catat kesehatan
+        </Button>
+        <Button variant="text" onClick={() => nav(full ? "/shifts" : "/plan")}>
+          {full ? "Kelola shift" : "Lihat rencana hari ini"}
+        </Button>
+      </div>
+    </div>
+  );
+  if (!full)
+    return (
+      <CardCarousel title="Ritme harimu">
+        {hero}
+        <div className="card">
+          <h2 className="next-plan-heading">Aktivitas berikutnya</h2>
+          <PlanList data={data} compact />
+          <Button variant="text" onClick={() => nav("/plan")}>
+            Lihat rencana lengkap
+          </Button>
+        </div>
+      </CardCarousel>
+    );
+  return (
+    <section className="life-stack" aria-label="Rencana sesuai shift">
+      {hero}
       <PlanList data={data} compact={!full} />
       {full && (
         <>

@@ -7,7 +7,8 @@ require("ts-node").register({
 const { createFreeRouter, AIProviderError } = require("../api/_openrouter");
 const { compactHistory, compactLifeContext } = require("../api/_ai-context");
 let originalKey, originalModels;
-beforeEach(() => {
+beforeEach((t) => {
+  t.mock.method(console, "warn", () => {});
   originalKey = process.env.OPENROUTER_API_KEY;
   originalModels = process.env.OPENROUTER_FALLBACK_MODELS;
   process.env.OPENROUTER_API_KEY = "test-key";
@@ -352,4 +353,94 @@ test("context preserves PostgreSQL timestamp Date values and sorts logs by logge
   });
   assert.equal(context.events[0].start_time, timestamp.toISOString());
   assert.equal(context.recent_logs[0].id, "later");
+});
+
+test("401 and 403 errors have distinct causes and do not invalidate the application session", async () => {
+  for (const [httpStatus, error, expectedCode] of [
+    [401, { message: "User not found" }, "OPENROUTER_AUTH"],
+    [403, { message: "Denied" }, "OPENROUTER_FORBIDDEN"],
+    [
+      403,
+      { message: "No endpoints matching your data policy" },
+      "OPENROUTER_PRIVACY",
+    ],
+    [
+      403,
+      {
+        message: "Budget exceeded",
+        metadata: { limit_source: "openrouter_key_limit" },
+      },
+      "OPENROUTER_BUDGET",
+    ],
+    [403, { message: "Request blocked by guardrail" }, "OPENROUTER_POLICY"],
+    [200, { code: 401, message: "Invalid credentials" }, "OPENROUTER_AUTH"],
+    [
+      200,
+      { code: 403, message: "Request blocked by moderation" },
+      "OPENROUTER_POLICY",
+    ],
+  ]) {
+    const f = fixture(
+      ["a", "b"].map((id) => model(id)),
+      () => reply({ error }, httpStatus),
+    );
+    await assert.rejects(f.request(messages, "system", tools), (e) => {
+      assert.equal(e.reasonCode, expectedCode);
+      assert.equal(e.statusCode, 502); // The browser logs out on application 401.
+      assert.match(e.message, /401|403/);
+      return true;
+    });
+    assert.equal(f.calls.length, 1); // Forbidden requests never bypass policies through fallback.
+  }
+});
+
+test("non-JSON authentication failures remain actionable instead of retrying other models", async () => {
+  for (const status of [401, 403]) {
+    const f = fixture(
+      ["a", "b"].map((id) => model(id)),
+      () => new Response("Forbidden", { status }),
+    );
+    await assert.rejects(
+      f.request(messages, "system", tools),
+      (e) =>
+        e.reasonCode ===
+        (status === 401 ? "OPENROUTER_AUTH" : "OPENROUTER_FORBIDDEN"),
+    );
+    assert.equal(f.calls.length, 1);
+  }
+});
+
+test("diagnostic logs omit raw provider messages, prompts and credentials", async () => {
+  const secret = "sk-or-test-private";
+  const f = fixture([model("a")], () =>
+    reply(
+      {
+        error: {
+          code: 403,
+          message: "Denied " + secret,
+          metadata: {
+            raw: "Private prompt: " + secret,
+            provider_name: "Provider",
+            error_type: "permission_error",
+          },
+        },
+      },
+      403,
+    ),
+  );
+  await assert.rejects(f.request(messages, "private prompt", tools));
+  const logged = JSON.stringify(console.warn.mock.calls);
+  assert.ok(!logged.includes(secret));
+  assert.ok(!logged.includes("private prompt"));
+  assert.ok(!logged.includes("Authorization"));
+  assert.match(logged, /permission_error/);
+});
+
+test("leading and trailing environment whitespace is removed before authorization", async () => {
+  process.env.OPENROUTER_API_KEY = "  test-key\n";
+  const f = fixture([model("a")], (_, __, init) => {
+    assert.equal(init.headers.Authorization, "Bearer test-key");
+    return answer();
+  });
+  await f.request(messages, "system", tools);
 });

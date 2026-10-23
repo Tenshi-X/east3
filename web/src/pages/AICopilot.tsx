@@ -19,7 +19,10 @@ type Message = {
 export default function AICopilot({ active = true }: { active?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [undoing, setUndoing] = useState<string | null>(null);
+  const busy = sending || undoing !== null;
+  const sendPending = useRef(false);
   const [loading, setLoading] = useState(true);
   const [convId, setConvId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -88,12 +91,23 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
   }, [input, active]);
   const send = async () => {
     const text = input.trim();
-    if ((!text && !imageFile) || busy || loading || reading || historyFailed)
+    if (
+      (!text && !imageFile) ||
+      busy ||
+      sendPending.current ||
+      loading ||
+      reading ||
+      historyFailed
+    )
       return;
-    setBusy(true);
+    sendPending.current = true;
+    setSending(true);
     setError("");
     stick.current = true;
     const image = imageFile;
+    const draft = input;
+    setInput("");
+    setImageFile(null);
     setMessages((m) => [
       ...m,
       { role: "user", content: text || "(Gambar)", image: image || undefined },
@@ -116,14 +130,17 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
           actions: r.actions || [],
         },
       ]);
-      setInput("");
-      setImageFile(null);
       changed();
     } catch (e) {
       setMessages((m) => m.slice(0, -1));
-      setError(`${messageOf(e)} Pesan belum terkirim. Draf tetap tersedia.`);
+      setInput(draft);
+      setImageFile(image);
+      setError(
+        `${messageOf(e)} Jawaban belum diterima. Draf tetap tersedia untuk dicoba lagi.`,
+      );
     } finally {
-      setBusy(false);
+      sendPending.current = false;
+      setSending(false);
       textRef.current?.focus();
     }
   };
@@ -213,7 +230,7 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
                     variant="text"
                     disabled={busy || undone.includes(action.action_id)}
                     onClick={async () => {
-                      setBusy(true);
+                      setUndoing(action.action_id);
                       try {
                         await api.life("undo_life_action", {
                           action_id: action.action_id,
@@ -223,22 +240,29 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
                       } catch (e) {
                         setError(messageOf(e));
                       } finally {
-                        setBusy(false);
+                        setUndoing(null);
                       }
                     }}
                   >
-                    {undone.includes(action.action_id)
-                      ? "Aksi dibatalkan"
-                      : "Batalkan aksi"}
+                    {undoing === action.action_id
+                      ? "Membatalkan aksi…"
+                      : undone.includes(action.action_id)
+                        ? "Aksi dibatalkan"
+                        : "Batalkan aksi"}
                   </Button>
                 )}
               </div>
             ))}
           </div>
         ))}
-        {busy && (
-          <div className="bubble assistant" role="status">
-            Atlas sedang menyiapkan jawaban…
+        {sending && (
+          <div className="bubble assistant chat-processing" role="status">
+            <span className="typing-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            <span>Atlas sedang menyiapkan jawaban…</span>
           </div>
         )}
       </div>
@@ -283,7 +307,7 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
             rows={1}
             ref={textRef}
             aria-label="Pesan untuk Atlas"
-            placeholder="Tulis pesan…"
+            placeholder={sending ? "Menunggu jawaban Atlas…" : "Tulis pesan…"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={busy || loading || historyFailed}

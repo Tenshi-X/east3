@@ -22,6 +22,7 @@ export class AIProviderError extends Error {
   constructor(
     message: string,
     public statusCode = 502,
+    public reasonCode = "AI_PROVIDER_ERROR",
   ) {
     super(message);
   }
@@ -96,7 +97,7 @@ export function createFreeRouter(
     tools: any[],
     opts: RouterOptions = {},
   ) {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY?.trim();
     if (!apiKey) throw new AIProviderError("Layanan AI belum dikonfigurasi.");
     const deadline = Math.min(
       opts.deadline ?? Infinity,
@@ -211,14 +212,83 @@ export function createFreeRouter(
             ),
           },
         );
-        if (response.status === 401 || response.status === 403)
-          throw new AIProviderError(
-            "Akses layanan AI ditolak. Periksa konfigurasi API.",
-          );
-        const data = await response.json();
+        // Read the provider error first: a 403 is not proof of an invalid key.
+        // Some errors arrive inside a 200 response after generation has started.
+        let data: any;
+        try {
+          data = await response.json();
+        } catch {
+          if (response.status !== 401 && response.status !== 403)
+            throw new Error("Invalid provider response");
+          data = {};
+        }
         if (!response.ok || data.error) {
-          const code = Number(data.error?.code) || response.status;
+          const code =
+            response.status === 401 || response.status === 403
+              ? response.status
+              : Number(data.error?.code) || response.status;
           const detail = String(data.error?.message ?? "");
+          const metadata = data.error?.metadata ?? {};
+          // Log only routing/error identifiers, never prompts, raw provider data,
+          // Authorization headers, or keys. Logs distinguish runtime failures
+          // from successful deployment builds.
+          const safe = (value: unknown) =>
+            typeof value === "string" &&
+            /^[a-zA-Z0-9_./: -]{1,100}$/.test(value)
+              ? value
+              : undefined;
+          console.warn("OpenRouter request rejected", {
+            model,
+            status: code,
+            error_type: safe(metadata.error_type),
+            provider: safe(metadata.provider_name),
+            limit_source: safe(metadata.limit_source),
+          });
+          if (code === 401)
+            throw new AIProviderError(
+              "Autentikasi OpenRouter gagal (401). API key perlu diperiksa oleh pengelola aplikasi.",
+              502,
+              "OPENROUTER_AUTH",
+            );
+          if (code === 403) {
+            // Do not retry a forbidden request against another model: account
+            // budgets and content/guardrail policies must remain enforced.
+            if (
+              [
+                "openrouter_guardrail_budget",
+                "openrouter_workspace_budget",
+                "openrouter_key_limit",
+              ].includes(metadata.limit_source)
+            )
+              throw new AIProviderError(
+                "Batas penggunaan akun atau API key OpenRouter tercapai (403). Periksa batas penggunaan di OpenRouter.",
+                502,
+                "OPENROUTER_BUDGET",
+              );
+            if (
+              Array.isArray(metadata.reasons) ||
+              metadata.guardrail_id ||
+              /guardrail|moderation|content.policy|request blocked/i.test(
+                detail,
+              )
+            )
+              throw new AIProviderError(
+                "Permintaan ditolak oleh kebijakan OpenRouter atau penyedia model (403).",
+                502,
+                "OPENROUTER_POLICY",
+              );
+            if (/data.policy|privacy|data collection|publication/i.test(detail))
+              throw new AIProviderError(
+                "Pengaturan privasi OpenRouter tidak mengizinkan akses model ini (403). Periksa pengaturan privasi di OpenRouter.",
+                502,
+                "OPENROUTER_PRIVACY",
+              );
+            throw new AIProviderError(
+              "OpenRouter menolak akses (403). Periksa izin akun/API key serta akses model; ini tidak selalu berarti API key salah.",
+              502,
+              "OPENROUTER_FORBIDDEN",
+            );
+          }
           if (
             code === 429 &&
             /daily|per.day|requests.*day|quota.*day/i.test(detail)
@@ -226,6 +296,7 @@ export function createFreeRouter(
             throw new AIProviderError(
               "Kuota harian AI gratis sudah habis. Coba lagi setelah kuota direset.",
               429,
+              "OPENROUTER_DAILY_LIMIT",
             );
           const retryAfter = response.headers?.get("retry-after");
           const seconds = retryAfter ? Number(retryAfter) : NaN;

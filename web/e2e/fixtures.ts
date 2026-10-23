@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve, sep, extname } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 import { DEFAULT_PROFILE, buildDailyPlan, shiftTimes } from "../../shared/life";
 type Write = { table: string; method: string; body: any };
@@ -7,6 +9,35 @@ type Mock = {
   fail: Set<string>;
 };
 export async function mockAPI(page: Page, authed = true): Promise<Mock> {
+  // Serve a production build entirely from disk when a local server is unavailable.
+  if (process.env.ATLAS_TEST_STATIC_DIR) {
+    const root = resolve(process.env.ATLAS_TEST_STATIC_DIR);
+    await page.route("**/*", async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname.startsWith("/api/")) return route.fallback();
+      const path = resolve(
+        root,
+        `.${url.pathname.includes(".") ? url.pathname : "/index.html"}`,
+      );
+      if (!path.startsWith(root + sep)) return route.fulfill({ status: 403 });
+      try {
+        const contentType =
+          (
+            {
+              ".js": "text/javascript",
+              ".css": "text/css",
+              ".html": "text/html",
+              ".svg": "image/svg+xml",
+              ".png": "image/png",
+              ".webmanifest": "application/manifest+json",
+            } as Record<string, string>
+          )[extname(path)] || "application/octet-stream";
+        await route.fulfill({ body: await readFile(path), contentType });
+      } catch {
+        await route.fulfill({ status: 404 });
+      }
+    });
+  }
   const mock: Mock = {
     writes: [],
     fail: new Set(),

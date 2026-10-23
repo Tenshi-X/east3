@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import HabitProgress from "../HabitProgress";
 import LifePanel from "../LifePanel";
+import CardCarousel from "../CardCarousel";
 import { useLocalDay } from "../useLocalDay";
 import { habitDone, habitStep, habitTarget } from "../habits";
 import {
@@ -224,251 +225,259 @@ export default function Dashboard({ user }: { user: any }) {
             <p className="muted">Satu langkah, satu hal baik hari ini.</p>
           </Section>
           <LifePanel />
-          <Section
-            title="Agenda hari ini"
-            action={
-              <Button variant="text" onClick={() => nav("/calendar")}>
-                Lihat semua
-              </Button>
-            }
-          >
-            {status("events")}
-            {!data.events.loading &&
-              !data.events.error &&
-              (events.length ? (
-                <div className="list">
-                  {events.slice(0, 3).map((e) => (
-                    <button
-                      type="button"
-                      className="list-row"
-                      key={e.id}
-                      onClick={() => nav("/calendar")}
-                    >
-                      <span className="event-time">
-                        <strong>{timeOf(e.start_time)}</strong>
-                        <small>{timeOf(e.end_time)}</small>
-                      </span>
-                      <span className="copy">
-                        <strong>{e.title}</strong>
-                        {e.description && (
-                          <p className="clamp-2">{e.description}</p>
-                        )}
-                      </span>
-                      <Icon name="chevron_right" />
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState title="Ada ruang untuk dirimu" icon="event">
-                  Belum ada agenda hari ini.
-                </EmptyState>
-              ))}
-          </Section>
-          <Section
-            title="Prioritas"
-            action={
-              tasks.length > 3 ? (
-                <Button variant="text" onClick={() => setAllTasks(true)}>
+          <CardCarousel title="Aktivitas hari ini">
+            <Section
+              title="Agenda hari ini"
+              action={
+                <Button variant="text" onClick={() => nav("/calendar")}>
                   Lihat semua
                 </Button>
-              ) : undefined
-            }
-          >
-            {status("tasks")}
-            {!data.tasks.loading &&
-              !data.tasks.error &&
-              (tasks.length ? (
-                <div className="list">{tasks.slice(0, 3).map(taskRow)}</div>
-              ) : (
-                <EmptyState title="Apa yang ingin kamu selesaikan?">
-                  Tambahkan tugas lewat tombol Tambah.
-                </EmptyState>
-              ))}
-          </Section>
-          <Section
-            title="Kebiasaan hari ini"
-            action={
-              <Button variant="text" onClick={() => nav("/habits")}>
-                Buka
-              </Button>
-            }
-          >
-            {status("habits")}
-            {status("logs")}
-            {!data.habits.loading &&
-              !data.logs.loading &&
-              !data.habits.error &&
-              !data.logs.error &&
-              (habits.length ? (
-                <div className="card">
-                  <div className="row between">
-                    <span>
-                      {completed} dari {habits.length} selesai
-                    </span>
-                    <Icon name="check_circle" />
+              }
+            >
+              {status("events")}
+              {!data.events.loading &&
+                !data.events.error &&
+                (events.length ? (
+                  <div className="list">
+                    {events.slice(0, 3).map((e) => (
+                      <button
+                        type="button"
+                        className="list-row"
+                        key={e.id}
+                        onClick={() => nav("/calendar")}
+                      >
+                        <span className="event-time">
+                          <strong>{timeOf(e.start_time)}</strong>
+                          <small>{timeOf(e.end_time)}</small>
+                        </span>
+                        <span className="copy">
+                          <strong>{e.title}</strong>
+                          {e.description && (
+                            <p className="clamp-2">{e.description}</p>
+                          )}
+                        </span>
+                        <Icon name="chevron_right" />
+                      </button>
+                    ))}
                   </div>
-                  <div
-                    className="progress"
-                    role="progressbar"
-                    aria-label="Kebiasaan selesai"
-                    aria-valuemin={0}
-                    aria-valuemax={habits.length}
-                    aria-valuenow={completed}
-                  >
+                ) : (
+                  <EmptyState title="Ada ruang untuk dirimu" icon="event">
+                    Belum ada agenda hari ini.
+                  </EmptyState>
+                ))}
+            </Section>
+            <Section
+              title="Prioritas"
+              action={
+                tasks.length > 3 ? (
+                  <Button variant="text" onClick={() => setAllTasks(true)}>
+                    Lihat semua
+                  </Button>
+                ) : undefined
+              }
+            >
+              {status("tasks")}
+              {!data.tasks.loading &&
+                !data.tasks.error &&
+                (tasks.length ? (
+                  <div className="list">{tasks.slice(0, 3).map(taskRow)}</div>
+                ) : (
+                  <EmptyState title="Apa yang ingin kamu selesaikan?">
+                    Tambahkan tugas lewat tombol Tambah.
+                  </EmptyState>
+                ))}
+            </Section>
+            <Section
+              title="Kebiasaan hari ini"
+              action={
+                <Button variant="text" onClick={() => nav("/habits")}>
+                  Buka
+                </Button>
+              }
+            >
+              {status("habits")}
+              {status("logs")}
+              {!data.habits.loading &&
+                !data.logs.loading &&
+                !data.habits.error &&
+                !data.logs.error &&
+                (habits.length ? (
+                  <div className="card">
+                    <div className="row between">
+                      <span>
+                        {completed} dari {habits.length} selesai
+                      </span>
+                      <Icon name="check_circle" />
+                    </div>
                     <div
-                      style={{ width: `${(completed / habits.length) * 100}%` }}
-                    />
-                  </div>
-                  <div style={{ marginTop: 12 }}>
-                    {habits.slice(0, 3).map((h) => {
-                      const log = habitLog(h.id);
-                      const done = habitDone(h, log);
-                      return (
-                        <div className="habit-item" key={h.id}>
-                          <div className="list-row">
-                            <IconButton
-                              icon={
-                                done ? "check_circle" : "radio_button_unchecked"
-                              }
-                              label={`${done ? "Batalkan check-in" : "Check-in"} ${h.name}`}
-                              disabled={pending.includes(h.id)}
-                              aria-pressed={done}
-                              onClick={() =>
-                                void mutate(h.id, () => {
-                                  const date = todayStr();
-                                  const complete = !habitDone(
-                                    h,
-                                    logs.find(
-                                      (l) =>
-                                        l.habit_id === h.id &&
-                                        localDate(l.date) === date,
-                                    ),
-                                  );
-                                  return api.upsert(
-                                    "habit_logs",
-                                    {
-                                      habit_id: h.id,
-                                      date,
-                                      value: complete ? habitTarget(h) : 0,
-                                      is_completed: complete,
-                                    },
-                                    "habit_id,date",
-                                  );
-                                })
+                      className="progress"
+                      role="progressbar"
+                      aria-label="Kebiasaan selesai"
+                      aria-valuemin={0}
+                      aria-valuemax={habits.length}
+                      aria-valuenow={completed}
+                    >
+                      <div
+                        style={{
+                          width: `${(completed / habits.length) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      {habits.slice(0, 3).map((h) => {
+                        const log = habitLog(h.id);
+                        const done = habitDone(h, log);
+                        return (
+                          <div className="habit-item" key={h.id}>
+                            <div className="list-row">
+                              <IconButton
+                                icon={
+                                  done
+                                    ? "check_circle"
+                                    : "radio_button_unchecked"
+                                }
+                                label={`${done ? "Batalkan check-in" : "Check-in"} ${h.name}`}
+                                disabled={pending.includes(h.id)}
+                                aria-pressed={done}
+                                onClick={() =>
+                                  void mutate(h.id, () => {
+                                    const date = todayStr();
+                                    const complete = !habitDone(
+                                      h,
+                                      logs.find(
+                                        (l) =>
+                                          l.habit_id === h.id &&
+                                          localDate(l.date) === date,
+                                      ),
+                                    );
+                                    return api.upsert(
+                                      "habit_logs",
+                                      {
+                                        habit_id: h.id,
+                                        date,
+                                        value: complete ? habitTarget(h) : 0,
+                                        is_completed: complete,
+                                      },
+                                      "habit_id,date",
+                                    );
+                                  })
+                                }
+                              />
+                              <span className="copy">{h.name}</span>
+                            </div>
+                            <HabitProgress
+                              habit={h}
+                              value={Number(log?.value || 0)}
+                              pending={pending.includes(h.id)}
+                              onIncrement={(direction) =>
+                                void mutate(h.id, () =>
+                                  api.incrementHabit(
+                                    h.id,
+                                    todayStr(),
+                                    Math.round(habitStep(h) * direction * 100) /
+                                      100,
+                                  ),
+                                )
                               }
                             />
-                            <span className="copy">{h.name}</span>
                           </div>
-                          <HabitProgress
-                            habit={h}
-                            value={Number(log?.value || 0)}
-                            pending={pending.includes(h.id)}
-                            onIncrement={(direction) =>
-                              void mutate(h.id, () =>
-                                api.incrementHabit(
-                                  h.id,
-                                  todayStr(),
-                                  Math.round(habitStep(h) * direction * 100) /
-                                    100,
-                                ),
-                              )
-                            }
-                          />
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <EmptyState title="Mulai dari kebiasaan kecil">
-                  Kelola kebiasaanmu di Ruang Saya.
-                </EmptyState>
-              ))}
-          </Section>
-          <Section
-            title="Ringkasan Atlas"
-            action={
-              <Button
-                variant="text"
-                disabled={briefBusy || data.brief.loading}
-                onClick={() => void genBrief()}
-              >
-                {briefBusy
-                  ? "Menyusun…"
-                  : data.brief.data.length
-                    ? "Perbarui"
-                    : "Buatkan"}
-              </Button>
-            }
-          >
-            {status("brief")}
-            {!data.brief.loading && (
-              <div className="card tonal-card">
-                <div className="row">
-                  <Icon name="auto_awesome" />
-                  <strong>Ruang untuk merencanakan</strong>
-                </div>
-                {data.brief.data[0]?.content ? (
-                  <>
-                    <p className={`brief-copy ${expanded ? "" : "clamp-3"}`}>
-                      {data.brief.data[0].content}
-                    </p>
-                    <Button
-                      variant="text"
-                      onClick={() => setExpanded((v) => !v)}
-                      aria-expanded={expanded}
-                    >
-                      {expanded ? "Ringkas" : "Baca selengkapnya"}
-                    </Button>
-                  </>
                 ) : (
-                  <p className="muted" style={{ marginTop: 12 }}>
-                    Minta Atlas membantu merangkum harimu.
-                  </p>
-                )}
-              </div>
-            )}
-          </Section>
-          <Section
-            title="Keuangan bulan ini"
-            action={
-              <Button variant="text" onClick={() => nav("/finance")}>
-                Buka
-              </Button>
-            }
-          >
-            {status("tx")}
-            {!data.tx.loading && !data.tx.error && (
-              <div className="card">
-                <p className="meta">Sisa dari pemasukan</p>
-                <p className="number">{rupiah(income - expense)}</p>
-                <p className="meta">Pengeluaran {rupiah(expense)}</p>
-              </div>
-            )}
-          </Section>
-          <Section title="Program workout">
-            {status("plans")}
-            {!data.plans.loading && !data.plans.error && (
-              <button
-                type="button"
-                className="list-row list"
-                onClick={() => nav("/workout")}
-              >
-                <span className="list-icon">
-                  <Icon name="fitness_center" />
-                </span>
-                <span className="copy">
-                  <strong>{plan?.name || "Program & riwayat latihan"}</strong>
-                  <p>
-                    {plan
-                      ? "Buka program latihanmu"
-                      : "Lihat program dan riwayat workout"}
-                  </p>
-                </span>
-                <Icon name="chevron_right" />
-              </button>
-            )}
-          </Section>
+                  <EmptyState title="Mulai dari kebiasaan kecil">
+                    Kelola kebiasaanmu di Ruang Saya.
+                  </EmptyState>
+                ))}
+            </Section>
+          </CardCarousel>
+          <CardCarousel title="Ringkasan & program">
+            <Section
+              title="Ringkasan Atlas"
+              action={
+                <Button
+                  variant="text"
+                  disabled={briefBusy || data.brief.loading}
+                  onClick={() => void genBrief()}
+                >
+                  {briefBusy
+                    ? "Menyusun…"
+                    : data.brief.data.length
+                      ? "Perbarui"
+                      : "Buatkan"}
+                </Button>
+              }
+            >
+              {status("brief")}
+              {!data.brief.loading && (
+                <div className="card tonal-card">
+                  <div className="row">
+                    <Icon name="auto_awesome" />
+                    <strong>Ruang untuk merencanakan</strong>
+                  </div>
+                  {data.brief.data[0]?.content ? (
+                    <>
+                      <p className={`brief-copy ${expanded ? "" : "clamp-3"}`}>
+                        {data.brief.data[0].content}
+                      </p>
+                      <Button
+                        variant="text"
+                        onClick={() => setExpanded((v) => !v)}
+                        aria-expanded={expanded}
+                      >
+                        {expanded ? "Ringkas" : "Baca selengkapnya"}
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Minta Atlas membantu merangkum harimu.
+                    </p>
+                  )}
+                </div>
+              )}
+            </Section>
+            <Section
+              title="Keuangan bulan ini"
+              action={
+                <Button variant="text" onClick={() => nav("/finance")}>
+                  Buka
+                </Button>
+              }
+            >
+              {status("tx")}
+              {!data.tx.loading && !data.tx.error && (
+                <div className="card">
+                  <p className="meta">Sisa dari pemasukan</p>
+                  <p className="number">{rupiah(income - expense)}</p>
+                  <p className="meta">Pengeluaran {rupiah(expense)}</p>
+                </div>
+              )}
+            </Section>
+            <Section title="Program workout">
+              {status("plans")}
+              {!data.plans.loading && !data.plans.error && (
+                <button
+                  type="button"
+                  className="list-row list"
+                  onClick={() => nav("/workout")}
+                >
+                  <span className="list-icon">
+                    <Icon name="fitness_center" />
+                  </span>
+                  <span className="copy">
+                    <strong>{plan?.name || "Program & riwayat latihan"}</strong>
+                    <p>
+                      {plan
+                        ? "Buka program latihanmu"
+                        : "Lihat program dan riwayat workout"}
+                    </p>
+                  </span>
+                  <Icon name="chevron_right" />
+                </button>
+              )}
+            </Section>
+          </CardCarousel>
         </div>
       </div>
       <Fab label="Tambah" onClick={() => setQuickOpen(true)} />

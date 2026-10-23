@@ -130,7 +130,9 @@ async function processAIRequest(
       });
     } catch (err) {
       if (err instanceof AIProviderError)
-        return res.status(err.statusCode).json({ error: err.message });
+        return res
+          .status(err.statusCode)
+          .json({ error: err.message, code: err.reasonCode });
       return res.status(502).json({
         error:
           "Foto belum berhasil dibaca. Coba foto lebih jelas, atau isi/koreksi jadwal di pratinjau.",
@@ -331,6 +333,7 @@ async function processAIRequest(
       return res
         .status(err instanceof AIProviderError ? err.statusCode : 502)
         .json({
+          code: err instanceof AIProviderError ? err.reasonCode : undefined,
           error:
             err instanceof AIProviderError
               ? err.message
