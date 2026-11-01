@@ -301,7 +301,7 @@ function component(file, api) {
     changed() {}, messageOf: error => error.message,
   };
   for (const name of ['Button','Field','Form','Icon','IconButton','LoadingState','Modal','Segments','Fab','EmptyState','ErrorState','Section']) ui[name] = function View() {};
-  const mod = browserModule(file, { react, 'react-router-dom': { useNavigate: () => () => {}, useSearchParams: () => [new URLSearchParams()] }, '../ui': ui, '../habits': browserModule('habits.ts', {}), '../HabitProgress': { default: function View() {} }, '../../../shared/life': require('../shared/life'), '../useLocalDay': { useLocalDay: todayStr }, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
+  const mod = browserModule(file, { react, 'react-router-dom': { useNavigate: () => () => {}, useSearchParams: () => [new URLSearchParams()] }, '../ui': ui, '../habits': browserModule('habits.ts', {}), '../HydrationReminders': { HydrationSettings: function View() {} }, '../HabitProgress': { default: function View() {} }, '../../../shared/life': require('../shared/life'), '../useLocalDay': { useLocalDay: todayStr }, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api': { api, todayStr, localDate: value => value.slice(0, 10) } });
   function render() { cursor = 0; effects = []; tree = mod.default({}); return tree; }
   function find(predicate, value) {
     if (arguments.length === 1) value = tree;

@@ -139,3 +139,21 @@ test('AI reads context then executes the requested action and returns a persiste
   const saved = queries.find(q => q.sql.includes('INSERT INTO ai_messages'));
   assert.equal(JSON.parse(saved.params[4])[0].can_undo, true);
 });
+
+test('hydration schedule API reads only the authenticated profile and shifts without AI or writes', async () => {
+  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(data) { this.body = data; return this; } };
+  await handleAIRequest({ headers: {}, body: { action: 'life', op: 'hydration_schedule', params: { userId: 'foreign-user', timezone: 'UTC' } } }, response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.timezone, 'Asia/Jakarta');
+  assert.ok(response.body.windows.length > 0);
+  assert.equal(queries.length, 2);
+  for (const call of queries) {
+    assert.match(call.sql, /^SELECT .*user_id = \$1/);
+    assert.equal(call.params[0], 'user-A');
+  }
+  auth.requireUser = async () => ({ error: 'Unauthorized' });
+  queries = [];
+  await handleAIRequest({ headers: {}, body: { action: 'life', op: 'hydration_schedule' } }, response);
+  assert.equal(response.statusCode, 401);
+  assert.equal(queries.length, 0);
+});

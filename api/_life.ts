@@ -9,6 +9,7 @@ import {
   shiftTimes,
   validDay,
 } from "../shared/life";
+import { buildHydrationSchedule, HYDRATION_DAYS } from "../shared/hydration";
 
 export class LifeError extends Error {
   constructor(
@@ -162,6 +163,23 @@ export function validateWellness(value: any, timezone: string) {
     row.logged_at = instant.toISOString();
   }
   return row;
+}
+
+export async function getHydrationSchedule(userId: string, timezone: string) {
+  const date = localDay(new Date(), timezone);
+  const [profile, shifts] = await Promise.all([
+    queryOne("SELECT * FROM health_profiles WHERE user_id = $1", [userId]),
+    query(
+      "SELECT * FROM shift_assignments WHERE user_id = $1 AND date >= $2::date AND date <= $3::date ORDER BY date",
+      [userId, dayAdd(date, -2), dayAdd(date, HYDRATION_DAYS + 1)],
+    ),
+  ]);
+  return buildHydrationSchedule({
+    date,
+    timezone,
+    profile: profile || {},
+    shifts,
+  });
 }
 
 export async function getLifeContext(

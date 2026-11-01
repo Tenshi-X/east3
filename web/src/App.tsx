@@ -26,6 +26,7 @@ import Health from "./pages/Health";
 import Shifts from "./pages/Shifts";
 import LifePanel from "./LifePanel";
 import Reminders from "./Reminders";
+import { useHydrationReminders } from "./HydrationReminders";
 
 type ScreenConfig = {
   title: string;
@@ -64,6 +65,9 @@ export default function App() {
   const [keyboard, setKeyboard] = useState(false);
   const profileOrigin = useRef("/space");
   const session = !!getToken();
+  const hydrationReminder = useHydrationReminders(
+    session ? user?.id || null : null,
+  );
   useEffect(() => {
     if (!session) {
       setLoading(false);
@@ -177,9 +181,9 @@ export default function App() {
     "/space": <Space />,
     "/profile": <Profile user={user} onLogout={logout} />,
     "/workout": <Workout />,
-    "/habits": <Habits />,
+    "/habits": <Habits userId={user.id} />,
     "/notes": <Notes />,
-    "/health": <Health />,
+    "/health": <Health userId={user.id} />,
     "/shifts": <Shifts />,
     "/plan": (
       <div className="screen-scroll">
@@ -192,6 +196,7 @@ export default function App() {
   return (
     <FeedbackProvider>
       <Reminders userId={user.id} />
+      {hydrationReminder}
       <div className={`app-frame ${keyboard ? "keyboard-open" : ""}`}>
         <header className="app-bar">
           {config.parent && (

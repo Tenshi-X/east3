@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve, sep, extname } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 import { DEFAULT_PROFILE, buildDailyPlan, shiftTimes } from "../../shared/life";
+import { buildHydrationSchedule } from "../../shared/hydration";
 type Write = { table: string; method: string; body: any };
 type Mock = {
   writes: Write[];
@@ -225,6 +226,15 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
     if (url.pathname === "/api/ai-proxy") {
       if (body.action === "life") {
         if (body.op === "get") return json(lifeContext(body.params?.date));
+        if (body.op === "hydration_schedule")
+          return json(
+            buildHydrationSchedule({
+              date: "2026-10-17",
+              timezone: "Asia/Jakarta",
+              profile: mock.tables.health_profiles[0],
+              shifts: mock.tables.shift_assignments,
+            }),
+          );
         mock.writes.push({ table: "life", method, body });
         const params = body.params || {};
         const snapshot = structuredClone(mock.tables);

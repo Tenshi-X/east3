@@ -32,7 +32,11 @@ Pesan bisa menjalankan beberapa aksi. Kartu hasil aksi menampilkan tindakan yang
 
 ## Pengingat
 
-Aktifkan melalui Kesehatan. Versi ini memeriksa aktivitas saat aplikasi **terbuka dan terlihat**, menghindari waktu tidur, dan menyediakan tindakan cepat di dalam aplikasi. Notifikasi perangkat memerlukan izin browser. Belum ada penjadwalan notifikasi saat aplikasi ditutup, push server, atau notifikasi lokal Android; fitur latar belakang ini memerlukan integrasi lanjutan.
+Pengingat aktivitas rencana harian di Kesehatan memeriksa aktivitas saat aplikasi **terbuka dan terlihat**, menghindari waktu tidur, dan menyediakan tindakan cepat di dalam aplikasi. Notifikasi perangkat untuk aktivitas ini memerlukan izin browser.
+
+**Pengingat minum air** memiliki pengaturan tersendiri di Kebiasaan dan Kesehatan. Mode otomatis mengikuti shift serta waktu tidur profil, termasuk tidur singkat sebelum shift malam dan pemulihan setelahnya. Saat tidak ada shift, jam bangun/tidur profil digunakan. Interval awal 120 menit dapat diubah; mode manual juga tersedia. Ini adalah pengaturan kebiasaan, bukan penentuan kebutuhan cairan.
+
+APK menjadwalkan pengingat minum melalui alarm lokal Android untuk 45 hari, sehingga tetap berjalan saat Atlas ditutup dan offline. Perubahan shift/profil memperbarui jadwal saat aplikasi terbuka dan online. Jika sinkronisasi gagal, jadwal tersimpan digunakan sampai masa berlakunya habis, lalu pengingat berhenti sampai Atlas berhasil menyinkronkan lagi. Jadwal otomatis menggunakan zona waktu profil; manual mengikuti jam HP. Browser hanya mengingatkan saat halaman terlihat. Deployment backend dan frontend/APK terbaru diperlukan; tidak ada perubahan schema untuk penyesuaian otomatis ini. Detail batasan izin, hemat baterai, dan force stop tersedia pada README.
 
 ## Database dan deployment
 

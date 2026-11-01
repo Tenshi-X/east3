@@ -36,6 +36,17 @@
 }
 
 /* Shift-aware daily plan and health journal */
+.hydration-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.hydration-fields input,
+.hydration-fields select {
+  width: 100%;
+  min-width: 0;
+}
 .life-stack {
   display: flex;
   flex-direction: column;

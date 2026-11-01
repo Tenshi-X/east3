@@ -13,6 +13,7 @@ import {
 } from "../ui";
 import { useLife } from "../LifePanel";
 import { ReminderSettings } from "../Reminders";
+import { HydrationSettings } from "../HydrationReminders";
 import { clockInZone } from "../../../shared/life";
 
 const labels: Record<string, string> = {
@@ -143,7 +144,7 @@ export function HealthProfile({
     </details>
   );
 }
-export default function Health() {
+export default function Health({ userId }: { userId: string }) {
   const nav = useNavigate();
   const { data, loading, error, load } = useLife("/health");
   const [kind, setKind] = useState("meal");
@@ -257,6 +258,7 @@ export default function Health() {
           </Button>
         </div>
         <HealthProfile profile={data.profile} open={!data.has_profile} />
+        <HydrationSettings userId={userId} />
         <ReminderSettings enabled={data.profile.reminders_enabled} />
         <section className="card life-stack" aria-label="Pencatatan kesehatan">
           <h2>{editing ? "Koreksi catatan" : "Catat cepat"}</h2>

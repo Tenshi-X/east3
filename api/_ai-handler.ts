@@ -12,6 +12,7 @@ import {
 import {
   executeLifeTool,
   getLifeContext,
+  getHydrationSchedule,
   setPlanState,
   LifeError,
 } from "./_life";
@@ -47,6 +48,8 @@ async function processAIRequest(
     try {
       if (op === "get")
         return res.json(await getLifeContext(userId, timezone, params.date));
+      if (op === "hydration_schedule")
+        return res.json(await getHydrationSchedule(userId, timezone));
       if (op === "plan_state")
         return res.json(await setPlanState(userId, timezone, params));
       if (

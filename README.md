@@ -41,6 +41,17 @@ Panduan fitur shift, pencatatan kesehatan lewat chat, workout fleksibel, rencana
 - **Finance**: tambah cepat (<10 detik), kategori, ringkasan bulanan, cashflow chart 7 hari, indikator budget.
 - **Ruang Saya**: akses Workout / Kebiasaan / Catatan. **Profil** dibuka dari avatar untuk informasi akun dan keluar.
 
+## Pengingat minum air
+
+- Buka **Ruang Saya → Kebiasaan** atau **Kesehatan → Pengingat minum air**, lalu aktifkan dan izinkan notifikasi. Mode awal **Otomatis mengikuti shift & waktu tidur** memakai jadwal shift serta jam bangun, jam tidur, target tidur, perjalanan, dan handover pada profil Kesehatan. Interval awal 120 menit dapat diubah menjadi 30/60/90/120/180 menit. Angka ini adalah interval pengingat, bukan ketentuan medis.
+- Mode otomatis memakai perhitungan tidur yang sama dengan rencana harian: mencakup bangun lebih awal sebelum shift pagi, tidur singkat sebelum shift malam pertama, dan tidur pemulihan setelah shift malam/gabungan. Pengingat tetap aktif saat bekerja malam dan berhenti selama tidur. Bila shift belum diisi, jam tidur profil menjadi acuan. Interval dihitung dari awal setiap rentang terjaga, tanpa mengulang hitungan pada tengah malam.
+- Jadwal otomatis disimpan di perangkat untuk **45 hari**, mengikuti zona waktu profil. Pengaturan shift/profil yang disimpan saat Atlas terbuka langsung memperbarui jadwal; aplikasi juga menyinkronkan ketika dibuka kembali, koneksi pulih, dan setiap 30 menit selama terlihat. Tanpa koneksi, jadwal terakhir yang masih berlaku dipakai. Setelah habis, pengingat otomatis berhenti sampai sinkronisasi berhasil; aplikasi tidak beralih diam-diam ke jam siang. Perubahan dari perangkat lain baru diterima saat Atlas dibuka dan online. Backend terbaru harus dideploy bersama frontend/APK; tidak perlu migrasi database baru. API `life/hydration_schedule` hanya membaca profil dan shift akun yang login, tanpa panggilan AI.
+- Pilih **Atur jam secara manual** bila ingin menentukan sendiri jam aktif, termasuk rentang melewati tengah malam. Nilai awal manual adalah 08.00 sampai sebelum 22.00. Jadwal pengingat minum terpisah dari pengingat aktivitas rencana harian.
+- APK memakai alarm lokal Android, sehingga pengingat berulang tanpa internet dan ketika WebView/aplikasi ditutup. Satu alarm berikutnya disimpan di sistem; penerima native menjadwalkan ulang setelah pengiriman, reboot, pembaruan APK, atau perubahan jam/timezone. Pengingat yang terlambat tidak ditampilkan di luar jam aktif. Alarm tidak memakai izin alarm presisi; Android dapat menunda pengiriman ketika menghemat baterai. Force stop atau mematikan izin notifikasi dapat menghentikan pengingat sampai Atlas dibuka lagi.
+- Pengaturan tersimpan per akun di perangkat ini. Logout membatalkan alarm aktif; masuk lagi memulihkan pengaturan akun tersebut jika izin masih tersedia. Ketuk notifikasi untuk membuka Kebiasaan dan mencatat air secara manual. Pengingat tidak mengubah jumlah air yang tercatat atau menentukan target cairan.
+- Tombol **Tes notifikasi minum** memeriksa izin dan mengirim contoh notifikasi. PWA/browser hanya mendukung pengingat ketika halaman Atlas terlihat; notifikasi latar belakang disediakan oleh APK.
+- Validasi tambahan: `node --test tests/hydration.test.cjs`, `npm run test:e2e --prefix web -- hydration.spec.ts`, dan `testDebugUnitTest lintDebug` Android. Pengiriman pada HP fisik, mode hemat baterai, dan setelah reboot perlu diperiksa dengan APK terbaru.
+
 ## Performa request
 
 - Backend dipatok ke region Vercel Singapore (`sin1`) melalui `vercel.json`. Pastikan `DATABASE_URL` produksi juga mengarah ke Neon Singapore sebelum deploy; konfigurasi lokal memakai `ap-southeast-1`.
@@ -173,7 +184,7 @@ cd web/android
 .\gradlew.bat assembleDebug testDebugUnitTest lintDebug
 ```
 
-Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.3** (`versionCode 4`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
+Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.4** (`versionCode 5`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
 
 GitHub Actions **Android APK** membangun APK debug dari `main`, memeriksa unit test/lint Android dan tanda tangan APK, lalu menyediakan artifact `Atlas-Android-APK`. Build juga dapat dimulai dari tab Actions melalui **Run workflow**. Status commit **Android APK** menautkan proses build dan hasil unduh. Sertifikat debug disimpan pada cache Actions agar build pengujian berikutnya memakai kunci yang sama; sertifikat dari build lokal lama mungkin berbeda.
 

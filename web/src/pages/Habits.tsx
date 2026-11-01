@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, localDate, todayStr } from "../api";
 import HabitProgress from "../HabitProgress";
+import { HydrationSettings } from "../HydrationReminders";
 import { useLocalDay } from "../useLocalDay";
 import {
   HABIT_TEMPLATES,
@@ -34,7 +35,7 @@ const COLORS = [
   { value: "#e74c3c", label: "Merah" },
   { value: "#9b59b6", label: "Ungu" },
 ];
-export default function Habits() {
+export default function Habits({ userId }: { userId: string }) {
   const nav = useNavigate();
   const panel = useCreatePanel("/habits");
   const feedback = useFeedback();
@@ -309,6 +310,7 @@ export default function Habits() {
             </div>
           </section>
           <ErrorState message={error} onRetry={() => void load()} />
+          <HydrationSettings userId={userId} />
           <details className="section template-catalog" open={!habits.length}>
             <summary>Template sehari-hari</summary>
             <p className="meta">

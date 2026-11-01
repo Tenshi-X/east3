@@ -164,10 +164,13 @@ export const api = {
       body: JSON.stringify({ action: "search_notes", query }),
     }),
   life: (op: string, params: any = {}) =>
-    (op === "get" ? readRequest : request)("/api/ai-proxy", {
-      method: "POST",
-      body: JSON.stringify({ action: "life", op, params }),
-    }),
+    (["get", "hydration_schedule"].includes(op) ? readRequest : request)(
+      "/api/ai-proxy",
+      {
+        method: "POST",
+        body: JSON.stringify({ action: "life", op, params }),
+      },
+    ),
   shiftPreview: (image: string, agent: string, month: string) =>
     request("/api/ai-proxy", {
       method: "POST",
