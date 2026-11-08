@@ -316,7 +316,7 @@ function component(file, api) {
 
 test('Workout forms submit schema-compatible plan, log, and set payloads', async () => {
   const writes = [];
-  const ui = component('pages/Workout.tsx', {
+  const ui = component('pages/WorkoutPrograms.tsx', {
     list: async table => ({ data: table === 'workout_plans' ? [{ id: 'plan', name: 'Push', day_of_week: [1] }] : [] }),
     listAll: async () => ({ data: [] }),
     create: async (table, row) => { writes.push({ table, row }); return { data: { id: 'new-log' } }; },

@@ -2,6 +2,7 @@ import { query, queryOne } from "./_db";
 import { requireUser } from "./_auth";
 import { getDashboard } from "./_dashboard";
 import { validDay } from "../shared/life";
+import { getWorkoutWeek, saveWorkoutSession, checkRestDay } from "./_workout";
 
 const TABLES = new Set([
   "events",
@@ -119,6 +120,22 @@ export async function handleDataRequest(
     const { user, error } = await requireUser(req);
     if (!user || error)
       return res.status(401).json({ error: error ?? "Unauthorized" });
+    if (table === "workout_tracker") {
+      const timezone = user.timezone ?? "Asia/Jakarta";
+      if (req.method === "GET" && !id) {
+        if (!validDay(req.query?.date)) throw new RequestError(400, "Tanggal tidak valid.");
+        return res.json(await getWorkoutWeek(user.id, timezone, req.query.date));
+      }
+      if (req.method === "POST" && ["session", "checkin"].includes(id || "")) {
+        try {
+          return res.json(await (id === "session" ? saveWorkoutSession : checkRestDay)(user.id, timezone, req.body));
+        } catch (e: any) {
+          if (e.code) throw e;
+          throw new RequestError(400, e.message);
+        }
+      }
+      return res.status(405).json({ error: "Method not allowed" });
+    }
     if (table === "dashboard" && req.method === "GET" && !id) {
       const date = req.query?.date;
       if (!validDay(date)) return res.status(400).json({ error: "Tanggal tidak valid." });

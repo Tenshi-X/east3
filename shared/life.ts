@@ -332,7 +332,7 @@ export function buildDailyPlan(input: {
   const logs = (input.logs || []).filter((l) => l.date === date);
   const energy = [...logs].reverse().find((l) => l.kind === "energy");
   const sleepLog = [...logs].reverse().find((l) => l.kind === "sleep");
-  const workouts = input.workouts || [];
+  const workouts = (input.workouts || []).filter((w) => w.activity_type !== "jogging");
   const recent = workouts.filter(
     (w) => w.date >= dayAdd(date, -6) && w.date <= date,
   );

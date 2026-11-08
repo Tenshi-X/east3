@@ -3,6 +3,11 @@ import { resolve, sep, extname } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 import { DEFAULT_PROFILE, buildDailyPlan, shiftTimes } from "../../shared/life";
 import { buildHydrationSchedule } from "../../shared/hydration";
+import {
+  buildWorkoutWeek,
+  weekStart,
+  weeklyReport,
+} from "../../shared/workout";
 type Write = { table: string; method: string; body: any };
 type Mock = {
   writes: Write[];
@@ -83,6 +88,7 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
       ],
       workout_logs: [],
       workout_sets: [],
+      workout_checkins: [],
       notes: [
         {
           id: "note-1",
@@ -301,6 +307,61 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
       if (body.action === "morning_brief")
         return json({ brief: "Hari yang menyenangkan." });
       return json({ reply: "Sudah saya bantu." });
+    }
+    if (table === "workout_tracker") {
+      if (method === "GET") {
+        const start = weekStart(url.searchParams.get("date")!);
+        const days = buildWorkoutWeek({
+          date: start,
+          timezone: "Asia/Jakarta",
+          profile: mock.tables.health_profiles[0],
+          shifts: mock.tables.shift_assignments,
+          events: mock.tables.events,
+          wellness: mock.tables.wellness_logs,
+          sessions: mock.tables.workout_logs,
+          checkins: mock.tables.workout_checkins,
+        });
+        return json({
+          start,
+          timezone: "Asia/Jakarta",
+          days,
+          sessions: mock.tables.workout_logs,
+          report: weeklyReport(start, mock.tables.workout_logs, days),
+          previous: weeklyReport(
+            new Date(Date.parse(start + "T12:00:00Z") - 7 * 86400000)
+              .toISOString()
+              .slice(0, 10),
+            mock.tables.workout_logs,
+          ),
+          missing_shifts: days.filter((d) => !d.shift).map((d) => d.date),
+        });
+      }
+      mock.writes.push({ table, method, body });
+      if (id === "session") {
+        let row = mock.tables.workout_logs.find(
+          (s) => s.client_id === body.client_id,
+        );
+        if (!row) {
+          row = { ...body, id: `session-${mock.writes.length}` };
+          mock.tables.workout_logs.push(row);
+        }
+        return json({ data: row });
+      }
+      if (id === "checkin") {
+        const days = buildWorkoutWeek({
+          date: body.date,
+          timezone: "Asia/Jakarta",
+          shifts: mock.tables.shift_assignments,
+          checkins: mock.tables.workout_checkins,
+        });
+        const day = days.find((d) => d.date === body.date);
+        let row = mock.tables.workout_checkins.find(
+          (d) => d.date === body.date,
+        );
+        if (row) Object.assign(row, body);
+        else mock.tables.workout_checkins.push({ ...body, snapshot: day });
+        return json({ data: row || body });
+      }
     }
     if (method === "GET") {
       let rows = [...(mock.tables[table] || [])];

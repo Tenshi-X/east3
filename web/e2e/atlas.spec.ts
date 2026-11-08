@@ -199,6 +199,7 @@ test("workout program and session use schema-compatible payloads, isolate progra
   mock,
 }) => {
   await page.goto("/workout");
+  await page.getByRole("button", { name: "Program", exact:true }).click();
   await page.getByRole("button", { name: "Program baru" }).click();
   let dialog = page.getByRole("dialog", { name: "Program latihan baru" });
   await dialog.getByLabel("Nama program").fill("Program tes");

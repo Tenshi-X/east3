@@ -311,3 +311,14 @@ kuota, konteks, serta alur chat dan pencatatan dengan provider/database tiruan.
 Pengujian ini tidak mengukur kualitas jawaban atau latensi provider produksi.
 Perubahan backend memerlukan deployment baru agar berlaku pada PWA/APK yang sudah
 terpasang; tidak memerlukan perubahan schema atau APK baru.
+
+## Workout dan jogging mingguan
+
+Menu Workout sekarang mencakup checklist mengikuti shift, tiga variasi latihan
+kos dengan ilustrasi berlisensi terbuka, timer sesi dan istirahat, GPS jarak/pace
+tanpa peta, serta laporan antar minggu. Jogging dijeda saat layar dikunci atau
+aplikasi masuk latar belakang. Jarak manual tersedia ketika GPS tidak tersedia.
+
+Fitur ini memerlukan `npm run db:migrate`, deployment backend/frontend, dan
+APK baru untuk izin lokasi serta plugin layar Android. Rincian penjadwalan,
+penyimpanan, sumber gambar, dan pengujian ada di [docs/workout-tracking.md](docs/workout-tracking.md).

@@ -102,6 +102,9 @@ async function authenticate(
 }
 
 export const api = {
+  workoutWeek: (date: string) => readRequest(`/api/data/workout_tracker?date=${encodeURIComponent(date)}`),
+  workoutSession: (data: any) => request("/api/data/workout_tracker/session", { method: "POST", body: JSON.stringify(data) }),
+  workoutCheckin: (date: string, completed: boolean) => request("/api/data/workout_tracker/checkin", { method: "POST", body: JSON.stringify({ date, completed }) }),
   register: (email: string, password: string, display_name?: string) =>
     authenticate("/api/auth/register", { email, password, display_name }),
   login: (email: string, password: string) =>
