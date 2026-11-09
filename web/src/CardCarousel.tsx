@@ -6,14 +6,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { IconButton } from "./ui";
+import { Icon, IconButton, type IconName } from "./ui";
 
 export default function CardCarousel({
   title,
   children,
+  icon,
 }: {
   title: string;
   children: ReactNode;
+  icon?: IconName;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -66,10 +68,19 @@ export default function CardCarousel({
       aria-roledescription="karusel"
     >
       <div className="carousel-heading">
+        {icon && (
+          <span className="carousel-title-icon">
+            <Icon name={icon} />
+          </span>
+        )}
         <div className="grow">
           <h2 id={id}>{title}</h2>
           <p className="meta">Geser untuk melihat lainnya</p>
         </div>
+        <span className="carousel-count" aria-live="polite" aria-atomic="true">
+          <span className="sr-only">Kartu </span>
+          {position + 1} / {cards.length}
+        </span>
         <IconButton
           icon="chevron_left"
           label={`Kartu sebelumnya: ${title}`}

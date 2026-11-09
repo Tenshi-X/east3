@@ -30,6 +30,7 @@ import event from "@material-symbols/svg-400/outlined/event.svg?raw";
 import schedule from "@material-symbols/svg-400/outlined/schedule.svg?raw";
 import savings from "@material-symbols/svg-400/outlined/savings.svg?raw";
 import dark_mode from "@material-symbols/svg-400/outlined/dark_mode.svg?raw";
+import light_mode from "@material-symbols/svg-400/outlined/light_mode.svg?raw";
 export const icons = {
   home,
   calendar_month,
@@ -63,4 +64,5 @@ export const icons = {
   schedule,
   savings,
   dark_mode,
+  light_mode,
 };

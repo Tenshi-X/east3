@@ -47,8 +47,9 @@ export function initializeTheme() {
 
 const ThemeContext = createContext<{
   preference: ThemePreference;
+  theme: Theme;
   setPreference: (preference: ThemePreference) => void;
-}>({ preference: "dark", setPreference: () => {} });
+}>({ preference: "dark", theme: "dark", setPreference: () => {} });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState(readPreference);
@@ -94,7 +95,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ preference, setPreference }}>
+    <ThemeContext.Provider value={{ preference, theme, setPreference }}>
       {children}
     </ThemeContext.Provider>
   );

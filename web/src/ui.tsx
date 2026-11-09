@@ -117,6 +117,44 @@ export function LoadingState() {
     </div>
   );
 }
+export function ProgressRing({
+  value,
+  total,
+  label,
+}: {
+  value: number;
+  total: number;
+  label: string;
+}) {
+  const ratio = total > 0 ? Math.max(0, Math.min(1, value / total)) : 0;
+  return (
+    <div
+      className="progress-ring"
+      role="img"
+      aria-label={`${label}: ${value} dari ${total}`}
+    >
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle className="ring-track" cx="50" cy="50" r="42" />
+        <circle
+          className="ring-value"
+          opacity={ratio > 0 ? 1 : 0}
+          cx="50"
+          cy="50"
+          r="42"
+          pathLength="100"
+          strokeDasharray={`${ratio * 100} 100`}
+        />
+      </svg>
+      <span aria-hidden="true">
+        <strong>
+          {value}
+          <small>/{total}</small>
+        </strong>
+        <span>selesai</span>
+      </span>
+    </div>
+  );
+}
 export function Section({
   title,
   action,

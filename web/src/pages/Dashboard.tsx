@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import HabitProgress from "../HabitProgress";
 import LifePanel from "../LifePanel";
 import CardCarousel from "../CardCarousel";
@@ -26,6 +26,7 @@ import {
   LoadingState,
   messageOf,
   Modal,
+  ProgressRing,
   Section,
   useCreatePanel,
   useFeedback,
@@ -204,6 +205,14 @@ export default function Dashboard({ user }: { user: any }) {
   const habitLog = (id: string) =>
     logs.find((l) => l.habit_id === id && localDate(l.date) === today);
   const completed = habits.filter((h) => habitDone(h, habitLog(h.id))).length;
+  const tasksDone = tasks.filter((task) => task.is_done).length;
+  const tasksReady = !data.tasks.loading && !data.tasks.error;
+  const habitsReady =
+    !data.habits.loading &&
+    !data.habits.error &&
+    !data.logs.loading &&
+    !data.logs.error;
+  const eventsReady = !data.events.loading && !data.events.error;
   const income = data.tx.data
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -231,14 +240,71 @@ export default function Dashboard({ user }: { user: any }) {
   return (
     <>
       <div className="screen-scroll">
-        <div className="content-width">
-          <Section
-            title={`Selamat datang, ${user?.display_name?.split(" ")[0] || "Pengguna"}`}
-          >
-            <p className="muted">Satu langkah, satu hal baik hari ini.</p>
-          </Section>
+        <div className="content-width dashboard-page">
+          <section className="day-overview" aria-labelledby="day-heading">
+            <div className="day-overview-main">
+              <div className="day-copy">
+                <p className="day-greeting">
+                  Selamat datang,{" "}
+                  {user?.display_name?.split(" ")[0] || "Pengguna"}
+                </p>
+                <h2 id="day-heading">Harimu, satu per satu.</h2>
+                <p className="muted">
+                  {tasksReady
+                    ? tasks.length
+                      ? tasksDone === tasks.length
+                        ? "Prioritas hari ini sudah selesai. Beri waktu untuk dirimu."
+                        : `${tasks.length - tasksDone} prioritas masih menunggu. Mulai dari yang paling penting.`
+                      : "Belum ada prioritas. Tentukan satu hal yang ingin kamu selesaikan."
+                    : data.tasks.error
+                      ? "Prioritas belum dapat dimuat. Coba lagi dari kartu Prioritas."
+                      : "Menyiapkan ringkasan harimu."}
+                </p>
+                <Button variant="tonal day-action" onClick={() => nav("/plan")}>
+                  <Icon name="schedule" />
+                  Lihat rencana
+                </Button>
+              </div>
+              {tasksReady ? (
+                <ProgressRing
+                  value={tasksDone}
+                  total={tasks.length}
+                  label="Prioritas selesai"
+                />
+              ) : (
+                <div className="day-ring-placeholder">
+                  <Icon name="checklist" />
+                </div>
+              )}
+            </div>
+            <div className="day-metrics" aria-label="Ringkasan hari ini">
+              <Link to="/calendar" className="day-metric">
+                <Icon name="event" />
+                <span>
+                  <strong>{eventsReady ? events.length : "-"}</strong>
+                  <span>agenda</span>
+                </span>
+              </Link>
+              <Link to="/habits" className="day-metric">
+                <Icon name="check_circle" />
+                <span>
+                  <strong>
+                    {habitsReady ? `${completed}/${habits.length}` : "-"}
+                  </strong>
+                  <span>kebiasaan</span>
+                </span>
+              </Link>
+              <Link to="/finance" className="day-metric">
+                <Icon name="account_balance_wallet" />
+                <span>
+                  <strong className="metric-link-label">Keuangan</strong>
+                  <span>bulan ini</span>
+                </span>
+              </Link>
+            </div>
+          </section>
           <LifePanel />
-          <CardCarousel title="Aktivitas hari ini">
+          <CardCarousel title="Aktivitas hari ini" icon="calendar_month">
             <Section
               title="Agenda hari ini"
               action={
@@ -405,7 +471,7 @@ export default function Dashboard({ user }: { user: any }) {
                 ))}
             </Section>
           </CardCarousel>
-          <CardCarousel title="Ringkasan & program">
+          <CardCarousel title="Ringkasan & program" icon="edit_note">
             <Section
               title="Ringkasan Atlas"
               action={
@@ -426,7 +492,7 @@ export default function Dashboard({ user }: { user: any }) {
               {!data.brief.loading && (
                 <div className="card tonal-card">
                   <div className="row">
-                    <Icon name="auto_awesome" />
+                    <Icon name="edit_note" />
                     <strong>Ruang untuk merencanakan</strong>
                   </div>
                   {data.brief.data[0]?.content ? (
@@ -460,10 +526,18 @@ export default function Dashboard({ user }: { user: any }) {
             >
               {status("tx")}
               {!data.tx.loading && !data.tx.error && (
-                <div className="card">
+                <div className="card dashboard-finance">
                   <p className="meta">Sisa dari pemasukan</p>
                   <p className="number">{rupiah(income - expense)}</p>
                   <p className="meta">Pengeluaran {rupiah(expense)}</p>
+                  <div className="finance-mini-split">
+                    <span>
+                      Pemasukan<strong>{rupiah(income)}</strong>
+                    </span>
+                    <span>
+                      Pengeluaran<strong>{rupiah(expense)}</strong>
+                    </span>
+                  </div>
                 </div>
               )}
             </Section>

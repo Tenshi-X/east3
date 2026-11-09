@@ -27,6 +27,7 @@ import Shifts from "./pages/Shifts";
 import LifePanel from "./LifePanel";
 import Reminders from "./Reminders";
 import { useHydrationReminders } from "./HydrationReminders";
+import { useTheme } from "./theme";
 
 type ScreenConfig = {
   title: string;
@@ -55,6 +56,7 @@ const SCREENS: Record<string, ScreenConfig> = {
 const TABS = Object.entries(SCREENS).filter(([, s]) => s.label);
 
 export default function App() {
+  const { theme, setPreference } = useTheme();
   const nav = useNavigate();
   const loc = useLocation();
   const [user, setUser] = useState<any>(loadUser());
@@ -198,7 +200,13 @@ export default function App() {
       <Reminders userId={user.id} />
       {hydrationReminder}
       <div className={`app-frame ${keyboard ? "keyboard-open" : ""}`}>
+        <a className="skip-link" href="#main-content">
+          Langsung ke konten
+        </a>
         <header className="app-bar">
+          <NavLink to="/" className="app-brand" aria-label="Atlas, beranda">
+            Atlas<span>Ruang untuk harimu</span>
+          </NavLink>
           {config.parent && (
             <IconButton
               icon="arrow_back"
@@ -218,6 +226,11 @@ export default function App() {
               </small>
             )}
           </div>
+          <IconButton
+            icon={theme === "dark" ? "light_mode" : "dark_mode"}
+            label={`Gunakan tema ${theme === "dark" ? "terang" : "gelap"}`}
+            onClick={() => setPreference(theme === "dark" ? "light" : "dark")}
+          />
           {!config.parent && (
             <button
               type="button"
@@ -233,7 +246,7 @@ export default function App() {
           )}
         </header>
         <div className="workspace">
-          <main className="screens" id="main-content">
+          <main className="screens" id="main-content" tabIndex={-1}>
             {Object.entries(pages)
               .filter(([path]) => visited.has(path) || path === loc.pathname)
               .map(([path, page]) => (

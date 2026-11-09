@@ -47,13 +47,20 @@ export default function Space() {
   const nav = useNavigate();
   return (
     <div className="screen-scroll">
-      <div className="content-width">
-        <p className="muted">Tempat untuk hal-hal yang penting bagimu.</p>
-        <section className="section list">
+      <div className="content-width space-page">
+        <div className="space-intro">
+          <p className="muted">Tempat untuk hal-hal yang penting bagimu.</p>
+          <h2>
+            Rawat dirimu.
+            <br />
+            Atur keseharianmu.
+          </h2>
+        </div>
+        <section className="section space-grid" aria-label="Fitur pribadi">
           {links.map((l) => (
             <button
               type="button"
-              className="list-row"
+              className="list-row space-link"
               key={l.to}
               onClick={() => nav(l.to)}
             >

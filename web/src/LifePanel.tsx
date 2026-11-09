@@ -5,6 +5,7 @@ import {
   Button,
   changed,
   ErrorState,
+  Icon,
   LoadingState,
   messageOf,
   usePageLoad,
@@ -221,7 +222,10 @@ export default function LifePanel({ full = false }: { full?: boolean }) {
   const todayShift = data.shifts.find((s: any) => s.date === data.date);
   const hero = (
     <div className="card life-hero">
-      <p className="eyebrow">SEKARANG & BERIKUTNYA</p>
+      <p className="life-caption">
+        <Icon name="schedule" />
+        Sekarang & berikutnya
+      </p>
       <h2>
         {activeShift
           ? `Sedang shift ${SHIFT_TYPES[activeShift.code]?.label.toLowerCase()}`
@@ -284,7 +288,7 @@ export default function LifePanel({ full = false }: { full?: boolean }) {
   );
   if (!full)
     return (
-      <CardCarousel title="Ritme harimu">
+      <CardCarousel title="Ritme harimu" icon="schedule">
         {hero}
         <div className="card">
           <h2 className="next-plan-heading">Aktivitas berikutnya</h2>
