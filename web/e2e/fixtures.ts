@@ -3,6 +3,7 @@ import { resolve, sep, extname } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 import { DEFAULT_PROFILE, buildDailyPlan, shiftTimes } from "../../shared/life";
 import { buildHydrationSchedule } from "../../shared/hydration";
+import { PERSONAL_DEFAULTS, paydayForecast, weeklyPersonalReport, personalCycle, overtimeEstimate } from "../../shared/personal";
 import {
   buildWorkoutWeek,
   weekStart,
@@ -113,6 +114,7 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
       shift_assignments: [],
       wellness_logs: [],
       daily_plan_states: [],
+      personal_profiles: [], personal_memories: [], personal_projects: [], personal_bills: [], personal_bill_payments: [], personal_overtime: [], personal_captures: [],
     },
   };
   const undo = new Map<string, any>();
@@ -199,6 +201,36 @@ export async function mockAPI(page: Page, authed = true): Promise<Mock> {
       });
     if (mock.fail.has(table) || mock.fail.has(url.pathname))
       return json({ error: "Layanan sedang tidak tersedia" }, 503);
+    if(table === "personal") {
+      const today="2026-10-17";
+      const profile={...PERSONAL_DEFAULTS,...mock.tables.personal_profiles[0]?.preferences};
+      if(method==="GET" && id==="rhythm")return json({...personalCycle(Date.now(),lifeContext().plan.items),recovery:false,reminders:[]});
+      if(method==="GET" && id==="backup")return json({format:"atlas-personal",version:1,owner_id:"user",exported_at:new Date().toISOString(),tables:{notes:mock.tables.notes}});
+      if(method==="GET") {
+        const balance=mock.tables.wallets.reduce((s,w)=>s+Number(w.opening_balance||0),0)+mock.tables.transactions.reduce((s,t)=>s+(t.type==="income"?1:-1)*Number(t.amount),0);
+        return json({preferences:profile,memories:mock.tables.personal_memories,projects:mock.tables.personal_projects.map(p=>({...p,pending_tasks:mock.tables.priorities.filter(t=>t.project_id===p.id&&!t.is_done).length})),bills:mock.tables.personal_bills,payments:mock.tables.personal_bill_payments,overtime:mock.tables.personal_overtime,forecast:{...paydayForecast(today,profile.payday,balance,mock.tables.personal_bills,mock.tables.personal_bill_payments),has_wallets:!!mock.tables.wallets.length},weekly:weeklyPersonalReport(today,mock.tables.wellness_logs,mock.tables.workout_logs,mock.tables.transactions,mock.tables.priorities)});
+      }
+      mock.writes.push({table:"personal",method,body:{action:id,...body}});
+      const created={...body,id:body.id||`personal-${mock.writes.length}`,updated_at:new Date().toISOString()};
+      if(id==="profile")mock.tables.personal_profiles=[{preferences:body}];
+      if(id==="memory"||id==="project") {
+        const target=id==="memory"?"personal_memories":"personal_projects";
+        const existing=mock.tables[target].find(r=>r.id===body.id);
+        if(existing)Object.assign(existing,created);else mock.tables[target].push(created);
+      }
+      if(id==="bill")mock.tables.personal_bills.push(created);
+      if(id==="overtime")mock.tables.personal_overtime.push({...created,estimated_amount:overtimeEstimate(body.hours,body.kind,profile)});
+      if(id==="schedule_project") { const p=mock.tables.personal_projects.find(p=>p.id===body.id)!;mock.tables.priorities.push({id:created.id,title:`${p.name}: ${p.next_action}`,project_id:p.id,date:body.date,duration_minutes:p.duration_minutes,energy:p.energy}); }
+      if(id==="pay_bill") { mock.tables.personal_bill_payments.push({bill_id:body.id,period:body.period});mock.tables.transactions.push({id:created.id,type:"expense",category:"utilities",amount:body.amount,occurred_at:body.date}); }
+      if(id==="receive_overtime") { Object.assign(mock.tables.personal_overtime.find(o=>o.id===body.id)!,{paid_at:body.date,received_amount:body.amount}); }
+      if(id==="delete") {const t=({memory:"personal_memories",project:"personal_projects",bill:"personal_bills",overtime:"personal_overtime"} as any)[body.kind];mock.tables[t]=mock.tables[t].filter(r=>r.id!==body.id);}
+      if(id==="capture"&&!mock.tables.personal_captures.some(r=>r.id===body.id)){
+        mock.tables.personal_captures.push(body);
+        if(body.kind==="expense")mock.tables.transactions.push({id:body.id,type:"expense",amount:body.amount,category:body.category,note:body.content,occurred_at:body.date});
+      }
+      if(id==="checkin")mock.tables.wellness_logs.push({date:body.date,kind:"sleep",sleep_hours:body.sleep_hours},{date:body.date,kind:"energy",energy:body.energy});
+      return json({message:id==="checkin"?"Tidur dan energi dicatat. Rencana harian diperbarui.":"Disimpan.",data:created});
+    }
     if (url.pathname === "/api/data/dashboard") {
       const sources: Record<string, string> = {
         events: "events",

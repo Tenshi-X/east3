@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { Button, changed, ErrorState, messageOf } from "./ui";
+import { personalNative, PersonalDevice } from "./personalDevice";
 
 export function ReminderSettings({ enabled }: { enabled: boolean }) {
   const [busy, setBusy] = useState(false);
@@ -11,6 +12,7 @@ export function ReminderSettings({ enabled }: { enabled: boolean }) {
     setError("");
     setInfo("");
     try {
+      if(!enabled&&personalNative){const r=await PersonalDevice.requestNotifications();if(!r.granted)throw new Error("Izinkan notifikasi di pengaturan HP untuk pengingat aktivitas.");}
       if (
         !enabled &&
         "Notification" in window &&
@@ -34,14 +36,13 @@ export function ReminderSettings({ enabled }: { enabled: boolean }) {
     <section className="card life-stack">
       <h2>Pengingat mengikuti ritmemu</h2>
       <p className="meta">
-        Saat Atlas terbuka, pengingat mengikuti rencana terbaru dan tidak muncul
-        selama waktu tidur. Notifikasi perangkat tersedia bila browser
-        mengizinkan. Pengingat belum berjalan saat aplikasi ditutup.
+        Pengingat mengikuti rencana terbaru dan menghindari waktu tidur.
+        {personalNative?" APK menyimpan jadwal hingga hari berikutnya agar dapat mengingatkan saat ditutup. Buka Atlas untuk menyinkronkan perubahan; penghemat baterai dapat menunda notifikasi.":" Di browser, pengingat tersedia saat Atlas terbuka dan terlihat."}
       </p>
       <Button variant="tonal" disabled={busy} onClick={() => void toggle()}>
         {enabled
           ? "Nonaktifkan pengingat"
-          : "Aktifkan pengingat saat aplikasi terbuka"}
+          : personalNative?"Aktifkan pengingat aktivitas":"Aktifkan pengingat saat aplikasi terbuka"}
       </Button>
       <ErrorState message={error} />
       {info && (

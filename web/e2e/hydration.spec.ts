@@ -17,7 +17,7 @@ test("Android permission denial, test notification, tap routing, and logout", as
     };
     (window as any).hydrationDevice = state;
     (window as any).androidBridge = {};
-    const plugins = ["HydrationReminders", "App", "Keyboard"];
+    const plugins = ["HydrationReminders", "App", "Keyboard", "PersonalDevice"];
     (window as any).Capacitor = {
       PluginHeaders: plugins.map((name) => ({
         name,
@@ -29,11 +29,13 @@ test("Android permission denial, test notification, tap routing, and logout", as
             "testNotification",
             "removeListener",
             "hide",
+            "status", "reminders",
           ].map((name) => ({ name, rtype: "promise" })),
           { name: "addListener", rtype: "callback" },
         ],
       })),
       nativePromise: async (plugin: string, method: string, options: any) => {
+        if(plugin === "PersonalDevice" && method === "status")return {available:true,enabled:false};
         if (method === "checkPermission" || method === "requestPermission")
           return { granted: state.granted };
         if (method === "configure") state.schedules.push(options);

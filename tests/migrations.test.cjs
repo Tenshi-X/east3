@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { runMigrations } = require('../scripts/migrate.cjs');
-const migrationNames = ['20261017_wallets_habit_templates.sql', '20261019_shift_wellness.sql', '20261108_workout_tracking.sql'];
+const migrationNames = ['20261017_wallets_habit_templates.sql', '20261019_shift_wellness.sql', '20261108_workout_tracking.sql', '20261110_personal_atlas.sql'];
 
 function database({ applied = false, fail = false } = {}) {
   const queries = [];

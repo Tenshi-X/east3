@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useSearchParams } from "react-router-dom";
 import { ShiftReview } from "../ShiftImport";
+import MemoryDraft from "../MemoryDraft";
 import {
   Button,
   changed,
@@ -225,6 +226,7 @@ export default function AICopilot({ active = true }: { active?: boolean }) {
               <div className="chat-action card" key={action.action_id || n}>
                 <strong>{action.message}</strong>
                 {action.draft && <ShiftReview draft={action.draft} />}
+                {action.memory_draft && <MemoryDraft draft={action.memory_draft} />}
                 {action.can_undo && (
                   <Button
                     variant="text"

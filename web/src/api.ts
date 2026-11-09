@@ -82,7 +82,7 @@ async function sendRequest(
     window.location.href = "/login";
     throw new Error("Sesi berakhir. Silakan login kembali.");
   }
-  if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(body?.error ?? `HTTP ${res.status}`), {status:res.status});
   if (body?.error) throw new Error(body.error);
   return body;
 }
@@ -102,6 +102,9 @@ async function authenticate(
 }
 
 export const api = {
+  personal: (action = "", data?: any) => data === undefined
+    ? readRequest(`/api/data/personal${action ? `/${action}` : ""}`)
+    : request(`/api/data/personal/${action}`, {method:"POST",body:JSON.stringify(data)}),
   workoutWeek: (date: string) => readRequest(`/api/data/workout_tracker?date=${encodeURIComponent(date)}`),
   workoutSession: (data: any) => request("/api/data/workout_tracker/session", { method: "POST", body: JSON.stringify(data) }),
   workoutCheckin: (date: string, completed: boolean) => request("/api/data/workout_tracker/checkin", { method: "POST", body: JSON.stringify({ date, completed }) }),
@@ -159,7 +162,7 @@ export const api = {
   morningBrief: (date: string) =>
     request("/api/ai-proxy", {
       method: "POST",
-      body: JSON.stringify({ action: "morning_brief", date }),
+      body: JSON.stringify({ action: "morning_brief", date, refresh:true }),
     }),
   semanticSearch: (query: string) =>
     request("/api/ai-proxy", {

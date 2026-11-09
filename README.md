@@ -33,6 +33,8 @@ als pemanggil akhir `openrouter/free` (auto-router).
 - **Animasi 180–250 ms**: card lift, sheet slide-up, FAB rotate, progress fill, page transition.
 
 ## Halaman
+Panduan penggunaan khusus pemilik, profil/memori, project, keuangan sampai gajian,
+backup dan antrean offline tersedia di [docs/personal-atlas.md](docs/personal-atlas.md).
 Panduan fitur shift, pencatatan kesehatan lewat chat, workout fleksibel, rencana harian, dan migrasi barunya tersedia di [docs/shift-wellness.md](docs/shift-wellness.md).
 
 - **Home**: Morning Brief (AI), timeline jadwal hari ini, kartu Income/Expense/Remaining, Workout hari ini, checklist Habit, prioritas (Quick Task).
@@ -184,7 +186,7 @@ cd web/android
 .\gradlew.bat assembleDebug testDebugUnitTest lintDebug
 ```
 
-Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.0.4** (`versionCode 5`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
+Hasil: `web/android/app/build/outputs/apk/debug/app-debug.apk`, versi **1.1.0** (`versionCode 6`). Pasang APK hasil build terbaru; APK lama tidak memuat perbaikan ini.
 
 GitHub Actions **Android APK** membangun APK debug dari `main`, memeriksa unit test/lint Android dan tanda tangan APK, lalu menyediakan artifact `Atlas-Android-APK`. Build juga dapat dimulai dari tab Actions melalui **Run workflow**. Status commit **Android APK** menautkan proses build dan hasil unduh. Sertifikat debug disimpan pada cache Actions agar build pengujian berikutnya memakai kunci yang sama; sertifikat dari build lokal lama mungkin berbeda.
 

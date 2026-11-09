@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import HabitProgress from "../HabitProgress";
 import LifePanel from "../LifePanel";
+import PersonalDay from "../PersonalDay";
 import CardCarousel from "../CardCarousel";
 import { useLocalDay } from "../useLocalDay";
 import { habitDone, habitStep, habitTarget } from "../habits";
@@ -304,6 +305,7 @@ export default function Dashboard({ user }: { user: any }) {
             </div>
           </section>
           <LifePanel />
+          <PersonalDay />
           <CardCarousel title="Aktivitas hari ini" icon="calendar_month">
             <Section
               title="Agenda hari ini"

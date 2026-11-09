@@ -6,6 +6,8 @@ const links: {
   description: string;
   icon: IconName;
 }[] = [
+  {to:"/personal",title:"Pribadi",description:"Profil, memori, project, uang sampai gajian, dan evaluasi",icon:"person"},
+  {to:"/capture",title:"Catat cepat",description:"Tulis atau ucapkan catatan, termasuk saat offline",icon:"edit_note"},
   {
     to: "/health",
     title: "Kesehatan",

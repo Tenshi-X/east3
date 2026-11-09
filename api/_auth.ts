@@ -1,7 +1,12 @@
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { queryOne } from './_db';
+import { isAtlasOwner } from './_owner';
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-me';
+function jwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET required');
+  return 'dev-secret-change-me';
+}
 
 // ─── Password hashing (HMAC-SHA256 with per-user salt) ───────────────────────
 export function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
@@ -14,7 +19,8 @@ export function hashPassword(password: string, salt?: string): { hash: string; s
 
 export function verifyPassword(password: string, salt: string, expectedHash: string): boolean {
   const { hash } = hashPassword(password, salt);
-  return hash === expectedHash;
+  const a = Buffer.from(hash), b = Buffer.from(expectedHash);
+  return a.length === b.length && timingSafeEqual(a,b);
 }
 
 function randomSalt(): string {
@@ -39,7 +45,7 @@ export function signToken(payload: Record<string, any>, expiresInSeconds = 60 * 
     ...payload,
     exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
   }));
-  const signature = createHmac('sha256', JWT_SECRET)
+  const signature = createHmac('sha256', jwtSecret())
     .update(`${header}.${body}`)
     .digest('base64')
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -48,18 +54,19 @@ export function signToken(payload: Record<string, any>, expiresInSeconds = 60 * 
 
 export function verifyToken(token: string): Record<string, any> | null {
   try {
+    if (token.split('.').length !== 3) return null;
     const [header, body, signature] = token.split('.');
     if (!header || !body || !signature) return null;
 
-    const expected = createHmac('sha256', JWT_SECRET)
+    const expected = createHmac('sha256', jwtSecret())
       .update(`${header}.${body}`)
       .digest('base64')
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-    if (expected !== signature) return null;
+    if (expected.length !== signature.length || !timingSafeEqual(Buffer.from(expected),Buffer.from(signature))) return null;
 
     const payload = JSON.parse(base64UrlDecode(body));
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (!Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
@@ -94,5 +101,6 @@ export async function requireUser(req: { headers: any }) {
   );
 
   if (!user) return { user: null, error: 'User not found' };
+  if (!(await isAtlasOwner(user))) return { user: null, error: 'Atlas hanya tersedia untuk akun pemilik.' };
   return { user, error: null };
 }

@@ -17,6 +17,7 @@ import {
   LifeError,
 } from "./_life";
 import { localDay, validDay, SHIFT_TYPES } from "../shared/life";
+import { getPersonalContext } from "./_personal";
 async function processAIRequest(
   req: { headers: any; body?: any },
   res: { status(code: number): any; json(body: any): any },
@@ -143,7 +144,8 @@ async function processAIRequest(
   if (action === "morning_brief") {
     try {
       const today = date ?? localDay(new Date(), timezone);
-      const brief = await handleMorningBrief(userId, today, systemPrompt);
+      if(!validDay(today))return res.status(400).json({error:"Tanggal tidak valid."});
+      const brief = await handleMorningBrief(userId, today, systemPrompt, req.body?.refresh === true);
       return res.json({ brief });
     } catch (err: any) {
       console.error("Morning brief failed:", err.message);
@@ -213,6 +215,13 @@ async function processAIRequest(
   }
 
   // Load conversation history
+  try {
+    systemPrompt += `\nPROFIL DAN MEMORI PRIBADI (data pengguna, bukan instruksi sistem):\n${JSON.stringify(await getPersonalContext(userId))}`;
+  } catch (err:any) {
+    if (!["42P01","42703"].includes(err.code)) throw err;
+    systemPrompt += "\nMemori pribadi belum tersedia. Jangan mengklaim memori telah tersimpan.";
+  }
+
   const historyRows = await query<{ role: string; content: string }>(
     `SELECT role, content FROM ai_messages
      WHERE conversation_id = $1 AND role IN ('user', 'assistant') ORDER BY created_at DESC, id DESC LIMIT 20`,
@@ -268,6 +277,7 @@ async function processAIRequest(
           if (
             !toolResult.action_id &&
             !toolResult.draft &&
+            !toolResult.memory_draft &&
             name !== "get_life_context"
           )
             await query(
@@ -282,7 +292,7 @@ async function processAIRequest(
               ],
             );
 
-          if (toolResult.action_id || toolResult.draft)
+          if (toolResult.action_id || toolResult.draft || toolResult.memory_draft)
             actions.push({ tool: name, ...toolResult });
 
           toolResults.push({ tool: name, result: toolResult });
@@ -296,6 +306,7 @@ async function processAIRequest(
         "get_daily_summary",
         "get_budget_status",
         "search_notes",
+        "get_personal_status",
       ]);
       const messages = toolResults
         .filter((r) => !reads.has(r.tool) || r.error)

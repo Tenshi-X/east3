@@ -28,6 +28,12 @@ import LifePanel from "./LifePanel";
 import Reminders from "./Reminders";
 import { useHydrationReminders } from "./HydrationReminders";
 import { useTheme } from "./theme";
+import Personal from "./pages/Personal";
+import Capture from "./pages/Capture";
+import PersonalLock from "./PersonalLock";
+import { flushCaptures } from "./personalQueue";
+import { PersonalDevice, personalNative } from "./personalDevice";
+import { usePersonalReminders } from "./personalReminders";
 
 type ScreenConfig = {
   title: string;
@@ -52,6 +58,8 @@ const SCREENS: Record<string, ScreenConfig> = {
   "/health": { title: "Kesehatan", parent: "/space" },
   "/shifts": { title: "Jadwal shift", parent: "/calendar" },
   "/plan": { title: "Rencana hari ini", parent: "/" },
+  "/personal": { title: "Pribadi", parent: "/space" },
+  "/capture": { title: "Catat cepat", parent: "/" },
 };
 const TABS = Object.entries(SCREENS).filter(([, s]) => s.label);
 
@@ -67,6 +75,7 @@ export default function App() {
   const [keyboard, setKeyboard] = useState(false);
   const profileOrigin = useRef("/space");
   const session = !!getToken();
+  usePersonalReminders(session ? user?.id || null : null);
   const hydrationReminder = useHydrationReminders(
     session ? user?.id || null : null,
   );
@@ -84,8 +93,8 @@ export default function App() {
           saveUser(r.user);
         }
       })
-      .catch(() => {
-        if (active) {
+      .catch((e) => {
+        if (active && (e.status === 401 || e.status === 403 || !loadUser()?.id)) {
           setToken(null);
           saveUser(null);
           setUser(null);
@@ -98,6 +107,12 @@ export default function App() {
       active = false;
     };
   }, [session]);
+  useEffect(()=>{
+    if(!session||!user?.id)return;
+    const sync=()=>{void flushCaptures(user.id).catch(()=>{});};
+    sync();window.addEventListener("online",sync);
+    return()=>window.removeEventListener("online",sync);
+  },[session,user?.id]);
   useEffect(() => {
     setVisited((previous) => new Set([...previous, loc.pathname]));
   }, [loc.pathname]);
@@ -145,6 +160,7 @@ export default function App() {
     };
   }, [goBack]);
   const logout = () => {
+    if(personalNative)void PersonalDevice.reminders({userId:"",items:[]}).catch(()=>{});
     setToken(null);
     saveUser(null);
     setUser(null);
@@ -185,6 +201,8 @@ export default function App() {
     "/workout": <Workout />,
     "/habits": <Habits userId={user.id} />,
     "/notes": <Notes />,
+    "/personal": <Personal />,
+    "/capture": <Capture userId={user.id} />,
     "/health": <Health userId={user.id} />,
     "/shifts": <Shifts />,
     "/plan": (
@@ -196,7 +214,7 @@ export default function App() {
     ),
   };
   return (
-    <FeedbackProvider>
+    <PersonalLock userId={user.id} onLogout={logout}><FeedbackProvider>
       <Reminders userId={user.id} />
       {hydrationReminder}
       <div className={`app-frame ${keyboard ? "keyboard-open" : ""}`}>
@@ -281,6 +299,6 @@ export default function App() {
           )}
         </div>
       </div>
-    </FeedbackProvider>
+    </FeedbackProvider></PersonalLock>
   );
 }

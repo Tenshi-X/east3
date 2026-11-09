@@ -1,5 +1,7 @@
 import { Button, Icon, Segments } from "../ui";
 import { useTheme } from "../theme";
+import { useNavigate } from "react-router-dom";
+import { LockSettings } from "../PersonalLock";
 export default function Profile({
   user,
   onLogout,
@@ -9,6 +11,7 @@ export default function Profile({
 }) {
   const name = user?.display_name || "Pengguna";
   const { preference, setPreference } = useTheme();
+  const nav=useNavigate();
   return (
     <div className="screen-scroll">
       <div className="content-width">
@@ -43,11 +46,13 @@ export default function Profile({
           <p className="meta">Pilihan tema disimpan di perangkat ini.</p>
         </section>
         <section className="card">
-          <h2>Akun Atlas</h2>
+          <h2>Atlas pribadi</h2>
           <p className="muted" style={{ marginTop: 8 }}>
             Agenda, keuangan, dan ruang pribadimu dalam satu tempat.
           </p>
+          <Button variant="text" onClick={()=>nav("/personal")}>Kelola profil, memori & backup</Button>
         </section>
+        <LockSettings userId={user.id}/>
         <Button variant="tonal full profile-logout" onClick={onLogout}>
           <Icon name="logout" />
           Keluar dari akun

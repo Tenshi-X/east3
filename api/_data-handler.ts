@@ -3,6 +3,9 @@ import { requireUser } from "./_auth";
 import { getDashboard } from "./_dashboard";
 import { validDay } from "../shared/life";
 import { getWorkoutWeek, saveWorkoutSession, checkRestDay } from "./_workout";
+import { PersonalError, personalOverview, personalAction, personalRhythm } from "./_personal";
+import { exportPersonalBackup, restorePersonalBackup } from "./_backup";
+import { LifeError } from "./_life";
 
 const TABLES = new Set([
   "events",
@@ -79,6 +82,9 @@ async function validateParent(
   userId: string,
   partial: boolean,
 ) {
+  if (table === "priorities" && row.project_id != null) {
+    if (!(await queryOne("SELECT id FROM personal_projects WHERE id=$1 AND user_id=$2",[row.project_id,userId]))) throw new RequestError(404,"Project not found");
+  }
   const parent =
     PARENTS[table] ??
     (table === "workout_logs"
@@ -120,6 +126,14 @@ export async function handleDataRequest(
     const { user, error } = await requireUser(req);
     if (!user || error)
       return res.status(401).json({ error: error ?? "Unauthorized" });
+    if (table === "personal") {
+      if (req.method === "GET" && !id) return res.json(await personalOverview(user.id, user.timezone, req.query?.date));
+      if (req.method === "GET" && id === "rhythm") return res.json(await personalRhythm(user.id,user.timezone));
+      if (req.method === "GET" && id === "backup") return res.json(await exportPersonalBackup(user.id));
+      if (req.method === "POST" && id === "restore") return res.json(await restorePersonalBackup(user.id,req.body));
+      if (req.method === "POST" && id) return res.json(await personalAction(user.id,user.timezone,id,req.body));
+      return res.status(405).json({error:"Method not allowed"});
+    }
     if (table === "workout_tracker") {
       const timezone = user.timezone ?? "Asia/Jakarta";
       if (req.method === "GET" && !id) {
@@ -410,7 +424,7 @@ export async function handleDataRequest(
     }
     return res.status(405).json({ error: "Method not allowed" });
   } catch (error: any) {
-    if (error instanceof RequestError)
+    if (error instanceof RequestError || error instanceof PersonalError || error instanceof LifeError)
       return res.status(error.statusCode).json({ error: error.message });
     if (["42P01", "42703"].includes(error.code)) {
       columnCache.delete(table);
